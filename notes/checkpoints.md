@@ -33,6 +33,42 @@ indépendants de la taille du prompt ; (b) LLMError après 2 essais (~78-223 s),
 sorties trop longues/variables du 3b. À noter pour 3a : ces essais datent
 d'**avant** le correctif « retry sans ré-envoi de la réponse tronquée ».
 
+## Revue 2 (17 oct 21:00) — Step A : diagnostic des 500 Ollama
+
+`ollama --version` : **0.40.5**.
+
+10 lignes du log serveur avant chaque 500 des runs Step 2 (les deux, extraites
+avec `grep -B10`) : le slot traite normalement — préfill fini, génération en
+cours à ~7 t/s — puis la requête meurt sans aucun message d'erreur :
+
+```
+slot launch_slot_: id  0 | task 9226 | processing task, is_child = 0
+slot   operator(): id  0 | task 9226 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 1241
+slot   operator(): id  0 | task 9226 | need to evaluate at least 1 token for each active slot (n_past = 1241, task.n_tokens() = 1241)
+slot   operator(): id  0 | task 9226 | n_past was set to 1240
+slot   operator(): id  0 | task 9226 | cached n_tokens = 1240, memory_seq_rm [1240, end)
+slot init_sampler: id  0 | task 9226 | init sampler, took 0.29 ms, tokens: text = 1241, total = 1241
+slot print_timing: id  0 | task 9226 | n_gen =    100, tg =   7.04 t/s, tg_3s =   7.11 t/s
+slot print_timing: id  0 | task 9226 | n_gen =    122, tg =   7.07 t/s, tg_3s =   7.19 t/s
+[GIN] 2026/10/17 - 20:28:32 | 500 |   19.8272501s |       127.0.0.1 | POST     "/v1/chat/completions"
+```
+
+(Au second 500, 20:31:24, même profil : prompt 601 tokens, n_gen 177 à 7,1 t/s,
+puis 500 à 27,9 s.)
+
+Mots-clés cherchés dans tout le log : `truncating input prompt`,
+`runner terminated`, `out of memory`, `context canceled` → **0 occurrence**.
+Constat : le second 500 meurt à ~1 363 tokens de contexte total, très loin de
+la limite — le débordement de contexte n'explique pas CES 500 (cause interne
+Ollama non identifiée). Mais `ollama ps` pendant une génération montrait bien
+**CONTEXT = 4096** pour qwen2.5:3b (2048 pour nomic-embed-text) : nos prompts
+RAG (~2 200 tokens) + 900 de sortie frôlaient la limite, et l'ancien réessai
+qui ré-appendait la réponse tronquée pouvait déborder. **Correctif appliqué :
+`OLLAMA_CONTEXT_LENGTH=8192`** sur le serveur (setx + redémarrage),
+`ollama ps` confirme **CONTEXT = 8192** sous charge. Documenté dans le README
+(Configuration). L'app ne change pas : les 500 restent à gérer côté code
+(Step B).
+
 ## CHECKPOINT 1 — Choix du modèle (M0)
 
 **Artefact : [`notes/model_smoke_test.md`](model_smoke_test.md)** — sorties brutes

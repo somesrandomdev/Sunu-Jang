@@ -109,6 +109,11 @@ python -m app.ui                # http://localhost:7860
 | `LLM_API_KEY` | `ollama` | Clé factice pour Ollama ; utile si vous pointez vers une autre API |
 | `TOP_K` | `3` | Nombre d'extraits d'annales injectés dans le prompt |
 
+Côté **serveur Ollama** (pas du code de l'app) : la variable
+`OLLAMA_CONTEXT_LENGTH=8192` est recommandée. À 4096, un prompt RAG complet
+(~2 200 tokens) plus la génération frôlent la limite et peuvent tronquer.
+Vérifiez avec `ollama ps` (colonne CONTEXT) pendant une génération.
+
 ## Performances et matériel
 
 Mesuré sur un CPU portable 4 cœurs (i7-1065G7, sans GPU) :
