@@ -1,0 +1,15 @@
+# Réponses prêtes à coller pour la démo (jeu d'éval scripts/eval.py)
+
+## Exercice 1 — MAUVAISE réponse (Maths T · suites) → note attendue ≤ 8
+
+1. u_1 = 2*1 + 3 = 5 et u_2 = 2*5 + 3 = 11.
+2. C'est évident : la suite est arithmétique de raison 3, donc u_n = u_0 + 3n = 1 + 3n. Pas besoin de récurrence.
+3. u_10 = 1 + 3*10 = 31.
+
+## Exercice 2 — BONNE réponse (facile, même thème suites) → note attendue ≥ 14
+
+1. u_1 = 2*1 + 3 = 5 et u_2 = 2*5 + 3 = 13.
+2. Par récurrence. Initialisation : pour n = 0, u_0 = 1 et 4*2^0 - 3 = 4 - 3 = 1, donc la propriété est vraie au rang 0.
+Hérédité : supposons que u_n = 4*2^n - 3 pour un entier n. Alors u_{n+1} = 2u_n + 3 = 2(4*2^n - 3) + 3 = 8*2^n - 6 + 3 = 8*2^n - 3 = 4*2^{n+1} - 3. La propriété est donc héréditaire.
+Conclusion : pour tout n dans N, u_n = 4*2^n - 3.
+3. u_10 = 4*2^10 - 3 = 4096 - 3 = 4093.
