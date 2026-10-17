@@ -2,6 +2,7 @@
 
 import gradio as gr
 
+from app.banque import BANQUE_PAR_MATIERE
 from app.config import TOP_K
 from app.llm import LLMError
 from app.rag import MATIERES_PAR_LIBELLE, charger_index, retrieve
@@ -59,7 +60,12 @@ SORTIES_EXERCICE = [
 
 
 def generer_exercice(matiere: str, niveau: str, difficulte: str, theme: str):
-    """Génère un exercice, ancré dans les annales quand l'index existe."""
+    """Génère un exercice, ancré dans les annales quand l'index existe.
+
+    Si la génération échoue et que la banque a un exercice pour cette matière,
+    on montre l'exercice de la banque (clairement étiqueté, jamais présenté
+    comme généré) : la correction reste elle exécutée en direct.
+    """
     matiere_token = MATIERES_PAR_LIBELLE.get(matiere)
     requete = theme.strip() or f"exercice de {matiere} niveau {niveau}"
     try:
@@ -73,7 +79,25 @@ def generer_exercice(matiere: str, niveau: str, difficulte: str, theme: str):
             extraits=[c["texte"] for c in chunks],
         )
     except LLMError as exc:
-        raise gr.Error(str(exc)) from exc
+        exercice_secours = BANQUE_PAR_MATIERE.get(matiere)
+        if exercice_secours is None:
+            raise gr.Error(str(exc)) from exc
+        gr.Warning("Génération indisponible : voici un exercice de la banque.")
+        return (
+            _exercice_markdown(exercice_secours),
+            gr.update(
+                value="Exercice de la banque (rédigé à la main, non généré)",
+                visible=True,
+            ),
+            exercice_secours,
+            "",  # réponse réinitialisée
+            NOTE_VIDE,
+            "",
+            "",
+            "",
+            "",
+            gr.update(visible=False),
+        )
     return (
         _exercice_markdown(exercice),
         _sources_update(chunks),

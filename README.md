@@ -23,6 +23,11 @@ Une application qui :
 3. propose l'**exercice suivant** adapté : plus facile si note < 10, même niveau si
    10–14, plus difficile si ≥ 15 (progression adaptative).
 
+Sur une machine modeste, si la génération échoue, l'app propose un **exercice de
+la banque** — rédigé à la main et clairement étiqueté comme tel, jamais présenté
+comme généré — et la correction reste exécutée en direct : le pire cas reste
+utilisable.
+
 Matières : Maths, Physique-Chimie, SVT, Philosophie — Niveaux : Seconde, Première, Terminale.
 
 ## Captures d'écran
