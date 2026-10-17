@@ -1,5 +1,7 @@
 """Logique métier : generate_exercise, grade_answer, next_difficulty."""
 
+import re
+
 from app.llm import chat_json
 from app.prompts import (
     CONTEXTE_ANNALE,
@@ -52,8 +54,18 @@ def generate_exercise(
     )
 
 
+# Ligne « Total : n/20 » demandée au modèle dans correction_detaillee ; la note
+# JSON est parfois incohérente avec cette somme détaillée, on s'y fie en priorité.
+_MOTIF_TOTAL = re.compile(r"Total\s*:\s*(\d+(?:[.,]\d+)?)\s*/\s*20", re.IGNORECASE)
+
+
 def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
-    """Note une réponse d'élève sur 20 à partir du corrigé de référence."""
+    """Note une réponse d'élève sur 20 à partir du corrigé de référence.
+
+    Si la correction contient une ligne « Total : n/20 » (la somme des points
+    attribués question par question), c'est elle qui fait foi : on prend la
+    DERNIÈRE occurrence, passée par le même bornage [0, 20] que la note JSON.
+    """
     if not reponse_eleve.strip():
         raise ValueError("La réponse de l'élève est vide : rien à corriger.")
     systeme = SYSTEM_FR.format(niveau=niveau)
@@ -64,13 +76,18 @@ def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
         corrige=exercise.corrige,
         reponse_eleve=reponse_eleve,
     )
-    return chat_json(
+    grade = chat_json(
         systeme,
         utilisateur,
         Grade,
         TEMPERATURE_CORRECTION,
         MAX_TOKENS_CORRECTION,
     )
+    totaux = _MOTIF_TOTAL.findall(grade.correction_detaillee)
+    if totaux:
+        note = float(totaux[-1].replace(",", "."))
+        grade = Grade.model_validate({**grade.model_dump(), "note": note})
+    return grade
 
 
 def next_difficulty(note: float, current: str) -> str:

@@ -95,6 +95,49 @@ class TestGradeAnswer:
         assert grade.note == 8.0
 
 
+class TestNoteDepuisTotal:
+    """Revue 2, Step C : la ligne « Total : n/20 » fait foi sur la note JSON."""
+
+    @staticmethod
+    def grade_avec_correction(note_json: float, correction: str, monkeypatch):
+        reponse = {
+            **REPONSE_GRADE,
+            "note": note_json,
+            "correction_detaillee": correction,
+        }
+        installer(monkeypatch, FakeClient([json.dumps(reponse)]))
+        return grade_answer(EXERCICE, "réponse d'élève", "Terminale")
+
+    def test_total_present_fait_foi(self, monkeypatch):
+        grade = self.grade_avec_correction(
+            8.0, "Q1 : 6/6. Q2 : 6/6.\nTotal : 12/20", monkeypatch
+        )
+        assert grade.note == 12.0
+
+    def test_total_absent_garde_la_note_json(self, monkeypatch):
+        grade = self.grade_avec_correction(8.0, "Q1 : correct. Bien.", monkeypatch)
+        assert grade.note == 8.0
+
+    def test_total_a_virgule(self, monkeypatch):
+        grade = self.grade_avec_correction(
+            8.0, "Q1 : 6/6. Q2 : 6,5/14.\nTotal : 12,5/20", monkeypatch
+        )
+        assert grade.note == 12.5
+
+    def test_deux_totaux_le_dernier_gagne(self, monkeypatch):
+        grade = self.grade_avec_correction(
+            8.0, "Sous-total : 5/20. Recalcul : Q1 6/6, Q2 9/14.\nTotal : 15/20",
+            monkeypatch,
+        )
+        assert grade.note == 15.0
+
+    def test_total_superieur_a_20_borne(self, monkeypatch):
+        grade = self.grade_avec_correction(
+            8.0, "Q1 : 15/6. Q2 : 10/14.\nTotal : 25/20", monkeypatch
+        )
+        assert grade.note == 20.0
+
+
 class TestNextDifficulty:
     @pytest.mark.parametrize(
         ("note", "actuelle", "attendue"),
