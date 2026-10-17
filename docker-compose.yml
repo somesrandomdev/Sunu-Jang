@@ -1,0 +1,28 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: .
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      # LLM_MODEL et EMBED_MODEL ont des défauts dans app/config.py ;
+      # surchargez-les ici ou dans un fichier .env si besoin.
+    ports:
+      - "7860:7860"
+    volumes:
+      # les annales et l'index restent sur la machine hôte
+      - ./data:/srv/app/data
+
+volumes:
+  ollama_models:
