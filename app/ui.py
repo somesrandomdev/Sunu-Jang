@@ -72,7 +72,7 @@ def generer_exercice(matiere: str, niveau: str, difficulte: str, theme: str):
             extraits=[c["texte"] for c in chunks],
         )
     except LLMError as exc:
-        raise gr.Warning(str(exc)) from exc
+        raise gr.Error(str(exc)) from exc
     return (
         _exercice_markdown(exercice),
         _sources_update(chunks),
@@ -90,13 +90,15 @@ def generer_exercice(matiere: str, niveau: str, difficulte: str, theme: str):
 def corriger(exercice: Exercise | None, reponse: str, niveau: str):
     """Note la réponse et affiche le bilan : note, forces, erreurs, conseil."""
     if exercice is None:
-        raise gr.Warning("Générez d'abord un exercice.")
+        # gr.Error (et non gr.Warning, simple fonction depuis Gradio 5) est
+        # l'exception qui affiche un toast sans stack trace côté élève.
+        raise gr.Error("Générez d'abord un exercice.")
     try:
         grade: Grade = grade_answer(exercice, reponse, niveau)
     except ValueError as exc:
-        raise gr.Warning(str(exc)) from exc
+        raise gr.Error(str(exc)) from exc
     except LLMError as exc:
-        raise gr.Warning(str(exc)) from exc
+        raise gr.Error(str(exc)) from exc
     points_forts = "\n".join(f"- ✅ {p}" for p in grade.points_forts) or "- (aucun)"
     erreurs = "\n".join(f"- ❌ {e}" for e in grade.erreurs) or "- (aucune)"
     return (
