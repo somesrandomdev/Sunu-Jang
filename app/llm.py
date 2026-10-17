@@ -93,7 +93,7 @@ def chat_json(
         {"role": "user", "content": user},
     ]
     derniere_erreur: str = ""
-    for tentative in (1, 2):
+    for _tentative in (1, 2):
         try:
             reponse = get_client().chat.completions.create(
                 model=LLM_MODEL,

@@ -1,0 +1,17 @@
+[project]
+name = "sunu-jang"
+version = "0.1.0"
+description = "Professeur particulier BAC sénégalais, 100 % local (Ollama + RAG)"
+requires-python = ">=3.11"
+license = "MIT"
+readme = "README.md"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
