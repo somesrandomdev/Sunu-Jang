@@ -114,6 +114,24 @@ class TestLatexDansJson:
         installer(monkeypatch, FakeClient([brut]))
         assert chat_json("s", "u", Exercice).titre == "$(u_n)_{n \\in \\Delta, \\pi > 0}$"
 
+    def test_latex_correctement_echappe_inchange(self, monkeypatch):
+        # Cas le plus fréquent (JSON valide produit par Ollama en mode json) :
+        # la réparation ne doit RIEN modifier, sans réessai.
+        titre = r"$a \times b$, $x \in \mathbb{R}$, $\frac{1}{2}$, $\Delta$, $\nu$"
+        client = installer(monkeypatch, FakeClient([contenu({"titre": titre})]))
+        assert chat_json("s", "u", Exercice).titre == titre
+        assert len(client.appels_chat) == 1
+
+    def test_antislash_litteral_double_conserve(self, monkeypatch):
+        titre = "chemin C:\\dossier et saut\nde ligne"
+        installer(monkeypatch, FakeClient([contenu({"titre": titre})]))
+        assert chat_json("s", "u", Exercice).titre == titre
+
+    def test_melange_bien_et_mal_echappe(self, monkeypatch):
+        brut = '{"titre": "$\\\\frac{1}{2} \\times 3 \\in E$"}'
+        installer(monkeypatch, FakeClient([brut]))
+        assert chat_json("s", "u", Exercice).titre == "$\\frac{1}{2} \\times 3 \\in E$"
+
 
 class TestEmbed:
     def test_liste_vide_appelle_pas_lapi(self, monkeypatch):

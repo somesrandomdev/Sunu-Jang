@@ -62,8 +62,9 @@ def generer_exercice(matiere: str, niveau: str, difficulte: str, theme: str):
     """Génère un exercice, ancré dans les annales quand l'index existe."""
     matiere_token = MATIERES_PAR_LIBELLE.get(matiere)
     requete = theme.strip() or f"exercice de {matiere} niveau {niveau}"
-    chunks = retrieve(requete, k=TOP_K, matiere=matiere_token)
     try:
+        # retrieve appelle embed() : il peut lever LLMError si Ollama est arrêté
+        chunks = retrieve(requete, k=TOP_K, matiere=matiere_token)
         exercice = generate_exercise(
             matiere,
             niveau,

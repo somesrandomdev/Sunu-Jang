@@ -50,18 +50,26 @@ def get_client() -> OpenAI:
     return _client
 
 
-# 1) Antislashs LaTeX qui n'ouvrent PAS un échappement JSON valide (\in, \Delta,
-#    \pi…) : json.loads les refuse, on les double dans le texte brut.
-_ECHAP_INVALIDES = re.compile(r'\\(?![\\/"bfnrtu])')
-
-# 2) Commandes LaTeX dont l'initiale forme AUSSI un échappement JSON valide
-#    (\times est décodé « tab + imes », \bbr « retour arrière + br »…).
-#    La limite (?![a-z]) évite de doubler un vrai \n devant un mot (ex. \nnuage).
-_LATEX_ECHAP_JSON = re.compile(
-    r"\\(?=(?:times|tau|theta|therefore|text|tfrac|frac|forall|flat|begin|bar|beta"
+# Réparation des antislashs LaTeX mal échappés, en UNE passe gauche→droite.
+# Alternative 1 : un antislash déjà échappé (\\) est consommé tel quel — sinon
+#   un JSON correct comme "\\frac" serait cassé (bug corrigé à la revue).
+# Alternative 2 : commande LaTeX dont l'initiale forme AUSSI un échappement JSON
+#   valide (\times serait décodé « tab + imes »). La limite (?![a-z]) évite de
+#   doubler un vrai \n devant un mot (ex. \nnuage).
+# Alternative 3 : antislash qui n'ouvre pas d'échappement JSON valide (\in, \Delta).
+_ANTISLASHS_A_REPARER = re.compile(
+    r"\\\\"
+    r"|\\(?=(?:times|tau|theta|therefore|text|tfrac|frac|forall|flat|begin|bar|beta"
     r"|boldsymbol|neq|nabla|notin|nu|nmid|right|rho|rightarrow|rangle|underline"
     r"|underbrace|unit)(?![a-z]))"
+    r'|\\(?![\\/"bfnrtu])'
 )
+
+
+def _reparer_antislashs(texte: str) -> str:
+    return _ANTISLASHS_A_REPARER.sub(
+        lambda m: m.group(0) if m.group(0) == "\\\\" else "\\\\", texte
+    )
 
 
 def _extraire_json(texte: str) -> dict:
@@ -77,8 +85,7 @@ def _extraire_json(texte: str) -> dict:
         if "```" not in premiere_ligne or not reste:
             raise ValueError("bloc de code mal formé")
         nettoye = "\n".join(reste).rsplit("```", 1)[0].strip()
-    nettoye = _ECHAP_INVALIDES.sub(r"\\\\", nettoye)
-    nettoye = _LATEX_ECHAP_JSON.sub(r"\\\\", nettoye)
+    nettoye = _reparer_antislashs(nettoye)
     try:
         return json.loads(nettoye)
     except json.JSONDecodeError:
