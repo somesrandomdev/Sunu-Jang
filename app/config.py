@@ -5,9 +5,10 @@ import os
 # URL de l'API Ollama (endpoint compatible OpenAI : OLLAMA_BASE_URL + "/v1")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
-# Modèle de chat — valeur provisoire, à confirmer au CHECKPOINT 1
-# (voir notes/model_smoke_test.md).
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:7b")
+# Modèle de chat — choix provisoire du CHECKPOINT 1 (seul candidat tenant
+# le budget de 120 s en génération sur CPU 4 cœurs, sévérité de correction
+# correcte). À confirmer par le reviewer : voir notes/model_smoke_test.md.
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b")
 
 # Modèle d'embeddings pour le RAG
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
