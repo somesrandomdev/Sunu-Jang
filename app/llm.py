@@ -6,6 +6,7 @@ compatible OpenAI, via les variables d'environnement uniquement.
 """
 
 import json
+import re
 from collections.abc import Sequence
 from typing import TypeVar
 
@@ -47,11 +48,23 @@ def get_client() -> OpenAI:
     return _client
 
 
+# Commandes LaTeX dont l'initiale forme un échappement JSON valide
+# (\times est décodé « tab + imes » par json.loads, \frac casse le parsing).
+# On double leur antislash dans le texte brut avant json.loads. La limite
+# (?![a-z]) évite de doubler un vrai \n devant un mot (ex. \nnuage).
+_LATEX_ECHAP_JSON = re.compile(
+    r"\\(?=(?:times|tau|theta|therefore|text|tfrac|frac|forall|flat|begin|bar|beta"
+    r"|boldsymbol|neq|nabla|notin|nu|nmid|right|rho|rightarrow|rangle|underline"
+    r"|underbrace|unit)(?![a-z]))"
+)
+
+
 def _extraire_json(texte: str) -> dict:
     """Extrait l'objet JSON d'une réponse du modèle.
 
-    Gère : blancs autour, balises ```json ... ```, et prose avant/après
-    le JSON (on prend alors le premier objet équilibré).
+    Gère : blancs autour, balises ```json ... ```, prose avant/après le JSON
+    (on prend alors le premier objet équilibré), et commandes LaTeX mal
+    échappées dans les chaînes (\times, \frac…).
     """
     nettoye = texte.strip()
     if nettoye.startswith("```"):
@@ -59,6 +72,7 @@ def _extraire_json(texte: str) -> dict:
         if "```" not in premiere_ligne or not reste:
             raise ValueError("bloc de code mal formé")
         nettoye = "\n".join(reste).rsplit("```", 1)[0].strip()
+    nettoye = _LATEX_ECHAP_JSON.sub(r"\\\\", nettoye)
     try:
         return json.loads(nettoye)
     except json.JSONDecodeError:

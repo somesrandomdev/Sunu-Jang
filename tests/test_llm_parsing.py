@@ -91,6 +91,25 @@ def test_chat_json_passe_format_json_et_temperature(monkeypatch):
     assert appel["temperature"] == 0.1
 
 
+class TestLatexDansJson:
+    """Les commandes LaTeX mal échappées ne doivent pas corrompre le texte."""
+
+    def test_times_mal_echappe_recupere(self, monkeypatch):
+        brut = '{"titre": "$u_n = 4 \\times 2^n$"}'  # \times brut dans le JSON
+        installer(monkeypatch, FakeClient([brut]))
+        assert chat_json("s", "u", Exercice).titre == "$u_n = 4 \\times 2^n$"
+
+    def test_frac_casse_le_json_mais_est_repare(self, monkeypatch):
+        brut = '{"titre": "$\\frac{a}{b}$"}'  # \f est un échappement JSON (saut de page)
+        installer(monkeypatch, FakeClient([brut]))
+        assert chat_json("s", "u", Exercice).titre == "$\\frac{a}{b}$"
+
+    def test_vrai_saut_de_ligne_conserve(self, monkeypatch):
+        brut = '{"titre": "ligne un\\nligne deux"}'  # \n légitime, pas \neq
+        installer(monkeypatch, FakeClient([brut]))
+        assert chat_json("s", "u", Exercice).titre == "ligne un\nligne deux"
+
+
 class TestEmbed:
     def test_liste_vide_appelle_pas_lapi(self, monkeypatch):
         client = installer(monkeypatch, FakeClient([]))
