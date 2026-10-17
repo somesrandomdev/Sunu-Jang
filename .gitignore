@@ -1,0 +1,28 @@
+# Environnement
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Annales : PDFs non redistribuables, voir data/SOURCES.md
+data/annales/
+
+# Index généré par scripts/ingest.py
+data/index/
+
+# Gradio / outils
+.gradio/
+.flag/
+dist/
+build/
+
+# Divers
+.DS_Store
+Thumbs.db

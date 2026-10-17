@@ -1,0 +1,5 @@
+openai>=1.40,<3
+pydantic>=2.7,<3
+numpy>=1.26
+pypdf>=4.2
+gradio>=4.44
