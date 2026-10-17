@@ -1,5 +1,6 @@
-openai>=1.40,<3
-pydantic>=2.7,<3
-numpy>=1.26
-pypdf>=4.2
-gradio>=4.44
+# Versions testées ensemble (voir pyproject.toml et notes/checkpoints.md).
+openai==2.54.0
+pydantic==2.14.1
+numpy==2.4.6
+pypdf==6.21.1
+gradio==6.30.0
