@@ -33,6 +33,33 @@ indépendants de la taille du prompt ; (b) LLMError après 2 essais (~78-223 s),
 sorties trop longues/variables du 3b. À noter pour 3a : ces essais datent
 d'**avant** le correctif « retry sans ré-envoi de la réponse tronquée ».
 
+## Revue 2 (17 oct 21:00) — Step E : re-mesure après steps A-D
+
+Machine refroidie 10 min, branchée, contexte Ollama 8192 actif, étape B/C/D
+appliquées (réessais sans ré-append, note « Total », banque de secours).
+
+### Génération : 5 essais consécutifs (Maths · Terminale · moyen · « suites numériques », TOP_K=3, chemin UI complet)
+
+| # | Résultat |
+|---|---|
+| 1 | ✅ 173,3 s (corrigé 1224 car.) |
+| 2 | ✅ 148,5 s (corrigé 1371 car.) |
+| 3 | ✅ 139,8 s (corrigé 799 car.) |
+| 4 | ✅ 285,5 s (corrigé 1158 car.) |
+| 5 | ❌ 301,3 s — LLMError (2 essais) |
+| **Taux** | **4/5** (contre 3/5 en Step 2) — **plus aucun 500** |
+
+La latence grimpe au fil du lot (173 s → 285 s : chauffe du CPU) ; le seul
+échec est une sortie trop longue sur les deux essais. À la démo, l'échec
+est amorti par la banque de secours (Step D).
+
+### Éval (`notes/eval_results.md`)
+
+**5/8 cas passés** — comme avant les steps A-D, mais **24/24 corrections ont
+produit un Grade** (plus aucune erreur de parsing/timeout ; philo fausse
+passe maintenant 8,0/8,0). Les 3 cas manqués sont les biais documentés du
+3b : 2nd degré bonne 12-13, MRUA fausse 11, philo bonne 11-12.
+
 ## Revue 2 (17 oct 21:00) — Step A : diagnostic des 500 Ollama
 
 `ollama --version` : **0.40.5**.
