@@ -74,3 +74,27 @@ class TestGrade:
                 correction_detaillee="",
                 conseil="x",
             )
+
+
+class TestGradeTolerance:
+    """Le modèle renvoie parfois des types voisins : on les accepte."""
+
+    def test_correction_en_liste_est_aplatie(self):
+        grade = Grade(
+            note=10,
+            points_forts=["a"],
+            erreurs=[],
+            correction_detaillee=["étape 1", "étape 2"],
+            conseil="x",
+        )
+        assert grade.correction_detaillee == "étape 1\nétape 2"
+
+    def test_erreurs_en_chaine_est_ensachee(self):
+        grade = Grade(
+            note=10,
+            points_forts=[],
+            erreurs="erreur unique",
+            correction_detaillee="x",
+            conseil="y",
+        )
+        assert grade.erreurs == ["erreur unique"]

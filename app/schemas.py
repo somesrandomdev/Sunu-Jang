@@ -23,3 +23,19 @@ class Grade(BaseModel):
     @classmethod
     def clamp(cls, v: float) -> float:
         return max(0.0, min(20.0, round(v * 2) / 2))  # borné à [0, 20], pas de 0,5
+
+    @field_validator("correction_detaillee", "conseil", mode="before")
+    @classmethod
+    def _aplatir(cls, v: object) -> object:
+        # le modèle renvoie parfois une liste au lieu d'un texte
+        if isinstance(v, list):
+            return "\n".join(str(item) for item in v)
+        return v
+
+    @field_validator("points_forts", "erreurs", mode="before")
+    @classmethod
+    def _ensacher(cls, v: object) -> object:
+        # …et parfois une seule chaîne au lieu d'une liste
+        if isinstance(v, str):
+            return [v] if v.strip() else []
+        return v
