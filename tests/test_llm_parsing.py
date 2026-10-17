@@ -109,6 +109,11 @@ class TestLatexDansJson:
         installer(monkeypatch, FakeClient([brut]))
         assert chat_json("s", "u", Exercice).titre == "ligne un\nligne deux"
 
+    def test_echappements_invalides_repares(self, monkeypatch):
+        brut = '{"titre": "$(u_n)_{n \\in \\Delta, \\pi > 0}$"}'
+        installer(monkeypatch, FakeClient([brut]))
+        assert chat_json("s", "u", Exercice).titre == "$(u_n)_{n \\in \\Delta, \\pi > 0}$"
+
 
 class TestEmbed:
     def test_liste_vide_appelle_pas_lapi(self, monkeypatch):
