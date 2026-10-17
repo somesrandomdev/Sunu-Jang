@@ -240,7 +240,7 @@ def executer(runs: int) -> tuple[list[str], bool]:
         else:
             passe = False
             attendu = f"≥ {SEUIL_BONNE:.0f}" if cas.bonne else f"≤ {SEUIL_FAUSSE:.0f}"
-            notes_txt = "erreur de parsing"
+            notes_txt = "erreur (timeout/parse)"
         succes_global = succes_global and passe
         lignes.append(
             f"| {cas.nom} | {attendu} | {notes_txt} | "
