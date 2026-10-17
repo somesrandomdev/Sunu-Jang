@@ -16,8 +16,10 @@ from pydantic import BaseModel, ValidationError
 
 from app.config import EMBED_MODEL, LLM_API_KEY, LLM_MODEL, OLLAMA_BASE_URL
 
-# Délai maximal d'une requête au modèle (PLAN.md §6 M1).
-TIMEOUT_S = 120.0
+# Délai maximal d'une requête au modèle. Le plan fixait 120 s ; sur CPU 4
+# cœurs, une génération à 900 tokens dépasse parfois 120 s — on passe à 180 s
+# (écart documenté dans notes/checkpoints.md).
+TIMEOUT_S = 180.0
 
 # Taille d'un lot d'embeddings envoyé à l'API.
 EMBED_BATCH_SIZE = 32
