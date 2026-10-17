@@ -100,11 +100,14 @@ def chat_json(
     user: str,
     schema: type[ModelT],
     temperature: float = 0.4,
+    max_tokens: int | None = None,
 ) -> ModelT:
     """Interroge le modèle et renvoie la réponse validée par `schema`.
 
     Un échec de parsing/validation déclenche exactement un réessai ;
     au second échec, lève LLMError avec un message en français.
+    `max_tokens` borne la longueur de sortie (les petits modèles locaux
+    ignorent parfois les consignes de concision).
     """
     messages: list[dict[str, str]] = [
         {"role": "system", "content": system},
@@ -118,6 +121,7 @@ def chat_json(
                 messages=messages,
                 temperature=temperature,
                 response_format={"type": "json_object"},
+                max_tokens=max_tokens,
             )
         except APITimeoutError as exc:  # sous-classe de APIConnectionError
             raise _erreur_connexion() from exc

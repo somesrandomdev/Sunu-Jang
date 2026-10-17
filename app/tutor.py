@@ -14,6 +14,10 @@ THEME_PAR_DEFAUT = "au choix, conforme au programme"
 # Générations : un peu de créativité ; corrections : déterministe (PLAN.md §6 M1).
 TEMPERATURE_GENERATION = 0.4
 TEMPERATURE_CORRECTION = 0.1
+# Bornes de longueur de sortie : les petits modèles locaux ignorent parfois
+# les consignes de concision, ce qui fait exploser la latence CPU.
+MAX_TOKENS_GENERATION = 900
+MAX_TOKENS_CORRECTION = 520
 
 DIFFICULTES = ["facile", "moyen", "difficile"]
 
@@ -39,7 +43,13 @@ def generate_exercise(
         theme=theme_effectif,
         contexte_annale=contexte,
     )
-    return chat_json(systeme, utilisateur, Exercise, TEMPERATURE_GENERATION)
+    return chat_json(
+        systeme,
+        utilisateur,
+        Exercise,
+        TEMPERATURE_GENERATION,
+        MAX_TOKENS_GENERATION,
+    )
 
 
 def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
@@ -54,7 +64,13 @@ def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
         corrige=exercise.corrige,
         reponse_eleve=reponse_eleve,
     )
-    return chat_json(systeme, utilisateur, Grade, TEMPERATURE_CORRECTION)
+    return chat_json(
+        systeme,
+        utilisateur,
+        Grade,
+        TEMPERATURE_CORRECTION,
+        MAX_TOKENS_CORRECTION,
+    )
 
 
 def next_difficulty(note: float, current: str) -> str:
