@@ -3,6 +3,36 @@
 > Généré le 17 oct 2026 par l'agent implémenteur. Chaque section correspond à un
 > CHECKPOINT du plan (`PLAN.md`). Les artefacts cités sont commités.
 
+## Revue 1 (17 oct soir) — Step 2 : re-mesure après correctif d'échappement
+
+Patch de revue appliqué (commit 689acd2, auteur « Claude (review) ») ; CI verte ;
+`pytest -q` : 70 passés. Machine refroidie 10 min avant les mesures.
+
+### Éval (`notes/eval_results.md`)
+
+**5 cas / 8 passés** (contre 4/8 avant le correctif) : le cas
+« 2nd degré — réponse fausse » passe désormais (8,0/8,0, plus d'erreur de
+parsing). Les deux biais connus de qwen2.5:3b sont inchangés (MRUA fausse
+10-11, philo bonne 11-12) ; une exécution philo fausse a encore échoué
+(timeout/parse). Durée : 1031 s.
+
+### Génération : 5 essais consécutifs (Maths · Terminale · moyen · « suites numériques », chemin UI complet)
+
+| # | TOP_K=3 (défaut) | TOP_K=1 |
+|---|---|---|
+| 1 | ✅ 102,5 s (corrigé 969 car.) | ❌ 27,9 s — InternalServerError (500 Ollama) |
+| 2 | ❌ 78,5 s — LLMError (2 essais) | ❌ 36,3 s — LLMError (2 essais) |
+| 3 | ✅ 90,7 s (corrigé 908 car.) | ✅ 108,2 s (corrigé 980 car.) |
+| 4 | ❌ 19,8 s — InternalServerError (500 Ollama) | ✅ 157,6 s (corrigé 789 car.) |
+| 5 | ✅ 119,6 s (corrigé 1301 car.) | ❌ 222,8 s — LLMError (2 essais) |
+| **Taux** | **3/5** | **2/5** |
+
+Lecture : TOP_K ne fait pas la différence (2/5 vs 3/5, bruit à n=5). Deux
+modes d'échec distincts : (a) des **500 côté serveur Ollama** (~20-36 s),
+indépendants de la taille du prompt ; (b) LLMError après 2 essais (~78-223 s),
+sorties trop longues/variables du 3b. À noter pour 3a : ces essais datent
+d'**avant** le correctif « retry sans ré-envoi de la réponse tronquée ».
+
 ## CHECKPOINT 1 — Choix du modèle (M0)
 
 **Artefact : [`notes/model_smoke_test.md`](model_smoke_test.md)** — sorties brutes
