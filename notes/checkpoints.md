@@ -78,12 +78,30 @@ dissertation trop sévère) ; `qwen2.5:7b` corrige juste ces 2 cas mais dépasse
 le timeout ~1 fois sur 2 sur cette machine. Trois options tranchables par le
 reviewer sont listées en fin de `prompt_iterations.md`.
 
+## M4 — UI bout en bout (vérifié au navigateur)
+
+Câblage complet vérifié (Chrome automatisé) : génération avec affichage
+« Inspiré de : … », LaTeX rendu, « Corriger » désactivé jusqu'à exercice +
+réponse non vide, correction affichée (note rouge 4/20, points forts, erreurs,
+accordéon « Correction détaillée », conseil), « Exercice suivant » pré-règle la
+difficulté (4/20 → Facile, puis 17/20 → remontée d'un cran), toasts d'erreur
+en français. Capture : `docs/img/capture-correction.png`.
+
+⚠️ Deux limites matérielles mesurées, à trancher :
+1. Sur ce CPU (4 cœurs, throttling thermique après ~1 h d'inférence continue),
+   la **génération avec RAG** (prompt ~2 200 tokens : 57 s de préfill à
+   38 tok/s + ~850 tokens de sortie) dépasse régulièrement le budget et échoue
+   (message français affiché, relance possible). La **correction** reste fiable
+   (30-60 s). La capture README a été prise avec un grader mocké (contenu réel
+   du jeu d'éval) pour être reproductible ; le comportement affiché est celui
+   du code.
+2. Écart API : `gr.Warning` n'est plus une exception depuis Gradio 5 → toasts
+   via `raise gr.Error(...)` (même rendu utilisateur).
+
 ## Hors plan, à valider aussi
 
 - Écarts documentés : `max_tokens` borné dans `chat_json` (anti-dérive de
   latence), coercion de types dans `Grade`, réparation d'échappements LaTeX
-  dans le JSON, timeout non réessayé après dépassement. Aucune dépendance
-  nouvelle par rapport à §2.
-- UI testée au navigateur (M4) : génération RAG → « Inspiré de » → correction
-  → progression adaptative ; toasts `gr.Error` (API Gradio 6 : `gr.Warning`
-  n'est plus une exception) — écart mineur documenté dans le code.
+  dans le JSON, timeout porté de 120 à 180 s (les générations à 900 tokens
+  dépassaient 120 s sur ce CPU), timeout non réessayé après dépassement.
+  Aucune dépendance nouvelle par rapport à §2.

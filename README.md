@@ -27,7 +27,8 @@ Matières : Maths, Physique-Chimie, SVT, Philosophie — Niveaux : Seconde, Prem
 
 ## Captures d'écran
 
-_(à ajouter : capture de l'interface — exercice + correction)_
+![Sunu Jàng : un exercice de suites (ancré dans `maths_S2_2023.pdf` p.3) et sa
+correction — note 4/20 en rouge, points forts, erreurs détaillées](docs/img/capture-correction.png)
 
 ## Architecture
 
@@ -102,6 +103,16 @@ python -m app.ui                # http://localhost:7860
 | `EMBED_MODEL` | `nomic-embed-text` | Modèle d'embeddings du RAG |
 | `LLM_API_KEY` | `ollama` | Clé factice pour Ollama ; utile si vous pointez vers une autre API |
 | `TOP_K` | `3` | Nombre d'extraits d'annales injectés dans le prompt |
+
+## Performances et matériel
+
+Mesuré sur un CPU portable 4 cœurs (i7-1065G7, sans GPU) :
+
+- **Correction** d'une réponse : 30 à 60 s.
+- **Génération** d'un exercice : 35 s à 3 min selon la charge du CPU — et peut
+  échouer (un message clair s'affiche, relancez). Sur une machine avec GPU,
+  préférez `LLM_MODEL=qwen2.5:7b` : meilleure qualité de correction, génération
+  plus fiable. Voir `notes/model_smoke_test.md` pour la comparaison complète.
 
 ## Ajouter des annales
 
