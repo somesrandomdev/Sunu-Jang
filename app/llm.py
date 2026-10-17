@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from typing import TypeVar
 
 import numpy as np
-from openai import APIConnectionError, APITimeoutError, OpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 from pydantic import BaseModel, ValidationError
 
 from app.config import EMBED_MODEL, LLM_API_KEY, LLM_MODEL, OLLAMA_BASE_URL
@@ -113,8 +113,12 @@ def chat_json(
 ) -> ModelT:
     """Interroge le modèle et renvoie la réponse validée par `schema`.
 
-    Un échec de parsing/validation déclenche exactement un réessai ;
-    au second échec, lève LLMError avec un message en français.
+    Au plus DEUX appels. Politique de réessai :
+    - JSON cassé ou invalide -> réessai avec l'erreur renvoyée au modèle ;
+    - réponse tronquée (`finish_reason = "length"`) -> réessai sur les messages
+      d'ORIGINE (ré-envoyer la sortie tronquée allongerait le prompt) ;
+    - erreur serveur (5xx) -> un réessai sur les messages d'origine ;
+    - 404 ou autre erreur d'API -> LLMError immédiat, en français.
     `max_tokens` borne la longueur de sortie (les petits modèles locaux
     ignorent parfois les consignes de concision).
     """
@@ -122,6 +126,7 @@ def chat_json(
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
+    messages_originaux = list(messages)
     derniere_erreur: str = ""
     for _tentative in (1, 2):
         try:
@@ -136,6 +141,21 @@ def chat_json(
             raise _erreur_connexion() from exc
         except APIConnectionError as exc:
             raise _erreur_connexion() from exc
+        except APIStatusError as exc:
+            if exc.status_code == 404:
+                raise LLMError(
+                    f"Le modèle « {LLM_MODEL} » est introuvable. "
+                    f"Lancez : ollama pull {LLM_MODEL}"
+                ) from exc
+            if exc.status_code >= 500 and _tentative == 1:
+                messages = list(messages_originaux)
+                continue
+            raise LLMError(
+                "Le modèle local a rencontré une erreur. Relancez la génération."
+            ) from exc
+        if (reponse.choices[0].finish_reason or "") == "length" and _tentative == 1:
+            messages = list(messages_originaux)
+            continue  # sans la sortie tronquée : réessai sur les messages d'origine
         contenu = reponse.choices[0].message.content or ""
         try:
             donnees = _extraire_json(contenu)

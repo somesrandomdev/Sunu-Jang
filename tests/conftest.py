@@ -13,13 +13,14 @@ class _Message:
 
 
 class _Choice:
-    def __init__(self, content: str) -> None:
+    def __init__(self, content: str, finish_reason: str) -> None:
         self.message = _Message(content)
+        self.finish_reason = finish_reason
 
 
 class _ChatResponse:
-    def __init__(self, content: str) -> None:
-        self.choices = [_Choice(content)]
+    def __init__(self, content: str, finish_reason: str = "stop") -> None:
+        self.choices = [_Choice(content, finish_reason)]
 
 
 class _Embedding:
@@ -35,8 +36,12 @@ class _EmbedResponse:
 
 
 class FakeClient:
-    """Client OpenAI factice : renvoie les contenus préparés, dans l'ordre.
+    """Client OpenAI factice : renvoie les réponses préparées, dans l'ordre.
 
+    Chaque entrée de `reponses` est :
+    - une str : contenu renvoyé (finish_reason "stop") ;
+    - un tuple (contenu, finish_reason) : ex. ("...", "length") ;
+    - une Exception : levée telle quelle (ex. InternalServerError, NotFoundError).
     `fail_connexion` lève une APIConnectionError au lieu de répondre.
     Chaque appel est enregistré (modèle, température, messages) pour les
     assertions des tests.
@@ -44,7 +49,7 @@ class FakeClient:
 
     def __init__(
         self,
-        reponses: list[str],
+        reponses: list,
         fail_connexion: bool = False,
         dim_embedding: int = 8,
     ) -> None:
@@ -64,7 +69,13 @@ class FakeClient:
                     )
                 if not self._reponses:
                     raise AssertionError("plus de réponse préparée que d'appel")
-                return _ChatResponse(self._reponses.pop(0))
+                reponse = self._reponses.pop(0)
+                if isinstance(reponse, Exception):
+                    raise reponse
+                if isinstance(reponse, tuple):
+                    contenu, raison = reponse
+                    return _ChatResponse(contenu, raison)
+                return _ChatResponse(reponse)
 
         class _Embeddings:
             @staticmethod

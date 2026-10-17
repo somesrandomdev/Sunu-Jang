@@ -2,13 +2,24 @@
 
 import json
 
+import httpx
 import numpy as np
 import pytest
 from conftest import FakeClient, installer
+from openai import APIStatusError, InternalServerError, NotFoundError
 from pydantic import BaseModel
 
+from app import llm
 from app.llm import LLMError, chat_json, embed
 from app.schemas import Exercise
+
+
+def erreur_api(status: int) -> APIStatusError:
+    requete = httpx.Request("POST", "http://test/v1/chat/completions")
+    reponse = httpx.Response(status, request=requete)
+    if status >= 500:
+        return InternalServerError("boom", response=reponse, body=None)
+    return NotFoundError("absent", response=reponse, body=None)
 
 SCHEMA = {
     "titre": "Suites numériques",
@@ -131,6 +142,42 @@ class TestLatexDansJson:
         brut = '{"titre": "$\\\\frac{1}{2} \\times 3 \\in E$"}'
         installer(monkeypatch, FakeClient([brut]))
         assert chat_json("s", "u", Exercice).titre == "$\\frac{1}{2} \\times 3 \\in E$"
+
+
+class TestErreursApi:
+    """Revue 2, Step B : troncature, 5xx et 404 n'appendent jamais de déchets."""
+
+    def test_tronquee_puis_valide_reessai_sur_messages_originaux(self, monkeypatch):
+        reponses = [('{  "titre": "Suite tron', "length"), contenu(SCHEMA)]
+        client = installer(monkeypatch, FakeClient(reponses))
+        assert chat_json("s", "u", Exercice).titre == "Suites numériques"
+        assert len(client.appels_chat) == 2
+        messages = client.appels_chat[1]["messages"]
+        assert len(messages) == 2  # system + user d'origine, sans la sortie tronquée
+        assert all(m["content"] != "Suite tron" for m in messages)
+
+    def test_500_puis_valide_reessai(self, monkeypatch):
+        client = installer(monkeypatch, FakeClient([erreur_api(500), contenu(SCHEMA)]))
+        assert chat_json("s", "u", Exercice).titre == "Suites numériques"
+        assert len(client.appels_chat) == 2
+        assert len(client.appels_chat[1]["messages"]) == 2
+
+    def test_500_deux_fois_llmerror(self, monkeypatch):
+        client = installer(monkeypatch, FakeClient([erreur_api(500)] * 2))
+        with pytest.raises(LLMError, match="a rencontré une erreur"):
+            chat_json("s", "u", Exercice)
+        assert len(client.appels_chat) == 2
+
+    def test_404_llmerror_apres_un_seul_appel(self, monkeypatch):
+        client = installer(monkeypatch, FakeClient([erreur_api(404)]))
+        with pytest.raises(LLMError, match="ollama pull"):
+            chat_json("s", "u", Exercice)
+        assert len(client.appels_chat) == 1
+
+    def test_404_cite_le_nom_du_modele(self, monkeypatch):
+        installer(monkeypatch, FakeClient([erreur_api(404)]))
+        with pytest.raises(LLMError, match=llm.LLM_MODEL):
+            chat_json("s", "u", Exercice)
 
 
 class TestEmbed:
