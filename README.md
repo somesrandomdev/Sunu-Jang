@@ -49,7 +49,12 @@ Le RAG : les PDF d'annales sont découpés en chunks (~800 caractères), embedd�
 `nomic-embed-text`, stockés dans un simple tableau NumPy. La recherche par similarité
 cosinus fournit les extraits qui inspirent l'exercice — **jamais recopiés**.
 
-## Démarrage rapide (Docker)
+## Démarrage rapide (Docker) — ⚠️ expérimental, non vérifié
+
+> Ce parcours n'a pas encore été validé par un `docker compose up` depuis un
+> clone frais (aucune des deux machines du projet n'a Docker au moment de la
+> rédaction). En cas de problème, [ouvrez une issue](../../issues/new) — ou
+> utilisez le démarrage local ci-dessous, lui aussi testé.
 
 Prérequis : [Docker](https://docs.docker.com/get-docker/).
 
@@ -132,7 +137,13 @@ ne sont simplement pas ancrés dans les annales.
 `scripts/eval.py` exécute 8 cas figés (4 exercices × réponse juste/fausse), 3 fois
 chacun. Critères : 8/8 réponses lisibles, bonne réponse ≥ 14/20, réponse fausse ≤ 8/20.
 
-Derniers résultats : voir [`notes/eval_results.md`](notes/eval_results.md).
+Score réel actuel (voir [`notes/eval_results.md`](notes/eval_results.md)) : **4 cas
+sur 8 passés** avec `qwen2.5:3b`. Le modèle corrige correctement les maths
+(suites, second degré, hors limite de variance) mais reste trop laxiste sur une
+réponse de physique entièrement fausse et trop sévère sur une bonne introduction
+de dissertation. Conséquence assumée et affichée dans l'application : **la note
+est indicative, pas une note officielle** — en cas de doute, l'élève se reporte
+à la correction détaillée et à son professeur.
 
 ## Feuille de route
 

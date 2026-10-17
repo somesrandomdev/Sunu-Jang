@@ -57,7 +57,7 @@ inspiré son exercice (« Inspiré de : maths_S2_2023.pdf p.3 »).
 | Outil | Modèle | Ce qu'il a fait |
 |---|---|---|
 | [ZCode](https://zcode.ai) (agent de codage) | GLM (Z.ai) | Écriture du code, des tests, des prompts et de la documentation, sous la direction du plan du projet (`PLAN.md`) |
-| Agent de revue | _(modèle de revue de l'équipe)_ | Vérification à chaque jalon (checkpoints) du plan : conformité aux exigences, choix du modèle de chat (`notes/model_smoke_test.md`), revue du diff à chaque checkpoint |
+| Agent de revue | Claude Opus 5.5 (Claude Code) | Revue à chaque jalon du plan : conformité aux exigences, choix du modèle de chat (`notes/model_smoke_test.md`). À la première revue (17 oct), a trouvé et corrigé trois bugs : la réparation d'échappements LaTeX qui corrompait un JSON *correctement* échappé, l'import `app` impossible quand pytest tourne sans `python -m` (CI rouge), et l'appel `retrieve()` hors du `try` dans l'UI (erreur brute au lieu du toast français) |
 
 Le code reste sous la responsabilité de l'équipe : chaque jalon a été relu, les
 tests (`pytest`, 60+ cas, client LLM mocké) tournent en CI à chaque push, et le

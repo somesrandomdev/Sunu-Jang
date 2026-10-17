@@ -23,7 +23,8 @@ fausse ; `gemma3:4b` timeout partout. **Choix provisoire posé :
 ## CHECKPOINT 2 — Cœur LLM (M1)
 
 - `app/llm.py` : `chat_json` (format json_object, parsing tolérant, 1 réessai,
-  LLMError en français, timeout 120 s), `embed` (lots, L2-normalisé).
+  LLMError en français, timeout 180 s — porté de 120 s après mesure sur CPU,
+  voir M4), `embed` (lots, L2-normalisé).
 - `app/tutor.py` : `generate_exercise`, `grade_answer`, `next_difficulty`.
 - Tests : **66 passent**, client OpenAI mocké (`pytest -q` avec Ollama arrêté).
 
