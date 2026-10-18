@@ -4,6 +4,9 @@
 sénégalais, qui tourne **entièrement en local** sur votre machine : aucun coût par
 exercice, aucune donnée qui sort, aucun abonnement — même sans internet.
 
+🎬 **Démo vidéo (2 min 58) :** _(lien YouTube « non répertorié » à coller ici après
+l'upload — checklist de soumission)_
+
 ## Le problème
 
 Au Sénégal, préparer le BAC seul est difficile :
@@ -147,13 +150,15 @@ ne sont simplement pas ancrés dans les annales.
 `scripts/eval.py` exécute 8 cas figés (4 exercices × réponse juste/fausse), 3 fois
 chacun. Critères : 8/8 réponses lisibles, bonne réponse ≥ 14/20, réponse fausse ≤ 8/20.
 
-Score réel actuel (voir [`notes/eval_results.md`](notes/eval_results.md)) : **4 cas
-sur 8 passés** avec `qwen2.5:3b`. Le modèle corrige correctement les maths
-(suites, second degré, hors limite de variance) mais reste trop laxiste sur une
-réponse de physique entièrement fausse et trop sévère sur une bonne introduction
-de dissertation. Conséquence assumée et affichée dans l'application : **la note
-est indicative, pas une note officielle** — en cas de doute, l'élève se reporte
-à la correction détaillée et à son professeur.
+Score réel actuel (voir [`notes/eval_results.md`](notes/eval_results.md)) : **5 cas
+sur 8 passés** avec `qwen2.5:3b`, et 24 corrections sur 24 lisibles. Le modèle
+corrige correctement les suites et le second degré côté réponses fausses, mais
+reste trop laxiste sur une réponse de physique entièrement fausse et trop sévère
+sur une bonne introduction de dissertation ; le cas « second degré — bonne
+réponse » est instable d'une session à l'autre (dérive du modèle, analysée dans
+`notes/eval_results.md`). Conséquence assumée et affichée dans l'application :
+**la note est indicative, pas une note officielle** — en cas de doute, l'élève se
+reporte à la correction détaillée et à son professeur.
 
 ## Feuille de route
 
