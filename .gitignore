@@ -29,3 +29,4 @@ Thumbs.db
 notes/brut_eval.log
 review-fixes.patch
 scripts/_gen_bench_tmp.py
+demo/
