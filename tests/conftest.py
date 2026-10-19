@@ -52,9 +52,11 @@ class FakeClient:
         reponses: list,
         fail_connexion: bool = False,
         dim_embedding: int = 8,
+        erreur_embed: Exception | None = None,
     ) -> None:
         self._reponses = list(reponses)
         self._fail_connexion = fail_connexion
+        self._erreur_embed = erreur_embed
         self._dim = dim_embedding
         self.appels_chat: list[dict[str, Any]] = []
         self.appels_embed: list[list[str]] = []
@@ -82,6 +84,8 @@ class FakeClient:
             def create(**kwargs: Any) -> _EmbedResponse:
                 entrees = kwargs["input"]
                 self.appels_embed.append(list(entrees))
+                if self._erreur_embed is not None:
+                    raise self._erreur_embed
                 vecteurs = [
                     np.random.default_rng(abs(hash(t)) % 2**32).normal(size=self._dim).tolist()
                     for t in entrees

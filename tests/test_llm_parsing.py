@@ -181,6 +181,20 @@ class TestErreursApi:
 
 
 class TestEmbed:
+    def test_404_sur_embed_donnel_lmerror(self, monkeypatch):
+        installer(
+            monkeypatch, FakeClient([], erreur_embed=erreur_api(404))
+        )
+        with pytest.raises(LLMError, match="ollama pull"):
+            embed(["requête"])
+
+    def test_500_sur_embed_donnel_lmerror(self, monkeypatch):
+        installer(
+            monkeypatch, FakeClient([], erreur_embed=erreur_api(500))
+        )
+        with pytest.raises(LLMError, match="a rencontré une erreur"):
+            embed(["requête"])
+
     def test_liste_vide_appelle_pas_lapi(self, monkeypatch):
         client = installer(monkeypatch, FakeClient([]))
         resultat = embed([])

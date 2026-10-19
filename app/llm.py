@@ -191,6 +191,15 @@ def embed(texts: Sequence[str]) -> np.ndarray:
             raise _erreur_connexion() from exc
         except APIConnectionError as exc:
             raise _erreur_connexion() from exc
+        except APIStatusError as exc:
+            if exc.status_code == 404:
+                raise LLMError(
+                    f"Le modèle « {EMBED_MODEL} » est introuvable. "
+                    f"Lancez : ollama pull {EMBED_MODEL}"
+                ) from exc
+            raise LLMError(
+                "Le modèle local a rencontré une erreur. Relancez la génération."
+            ) from exc
         vecteurs.extend(item.embedding for item in reponse.data)
     matrice = np.asarray(vecteurs, dtype=np.float32)
     normes = np.linalg.norm(matrice, axis=1, keepdims=True)
