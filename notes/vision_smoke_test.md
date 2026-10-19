@@ -6,8 +6,12 @@
 Méthode : photos manuscrites réelles ( Samsung, papier quadrillé ) fournies par
 l'utilisateur, converties en JPEG (`tests/fixtures/copies/*.jpg`). Script jetable
 (non commité) : plus long côté redimensionné à 1024 px, PNG base64 en
-`image_url` vers `/v1/chat/completions`, prompt de transcription §2 verbatim,
+`image_url` vers `/v1/chat/completions`, prompt de transcription §2,
 `temperature=0`, `max_tokens=700`.
+
+> ⚠️ Le prompt a été révisé en **v2** lors de la Gate 1b (voir plus bas) :
+> {enonce} remplacé par la liste des numéros de questions + consigne
+> « [non traitée] ». **C'est la v2 qui sera implémentée dans `app/prompts.py`.**
 
 ## Résultats
 
@@ -45,5 +49,58 @@ même et donne deux observations utiles :
 - [x] ≤ 120 s par photo (76 s, 92 s, 102 s)
 - [x] Garde-fou AUCUNE_COPIE vérifié (première passe)
 
-**Gate 1 : PASSÉE** — prêt pour l'implémentation (§1–§6 de la spec) après feu
-vert du reviewer.
+**Gate 1 : PASSÉE** (prompt v1) — voir la Gate 1b qui suit.
+
+---
+
+# Gate 1b — Test d'hallucination (copie partielle)
+
+**Photo :** `suites_partielle.jpg` — seule la Q1 est traitée (u₁ = 5, u₂ = 13),
+Q2 et Q3 vides sur le papier.
+
+## Prompt v1 (énoncé complet dans le prompt) — ÉCHEC
+
+Un essai (76 s) suffit à montrer la fuite : la transcription « recopie »
+l'énoncé des questions non traitées :
+
+> Question 2 : Montrer par **récurrence** que, pour tout n ∈ ℕ, u_n = **4 × 2^n − 3**.
+> Question 3 : En déduire la valeur de u_10.
+
+« récurrence » et « 4 × 2^n » présents → impossibles à distinguer d'une vraie
+lecture. Conforme au soupçon du reviewer : avec l'énoncé dans le prompt, « lu »
+et « résolu » sont indiscernables.
+
+## Prompt v2 (liste des questions + « [non traitée] ») — PASS
+
+Changements : `{enonce}` remplacé par « L'exercice comporte les questions 1, 2
+et 3. » + ajout de « Si une question n'est pas traitée sur la copie, écris :
+[non traitée]. »
+
+**Copie partielle, 2 essais :**
+
+| Essai | Temps | Transcription |
+|---|---|---|
+| 1 | 74 s | « Question 1 : (u1 = 5, u2 = 13) » — rien d'autre ✅ |
+| 2 | 3 s (modèle chaud) | identique ✅ |
+
+Ni « récurrence », ni « hérédité », ni « 4093 », ni « 4 × 2^n ». (Les Q2/Q3 ne
+sont pas mentionnées du tout — la spec l'autorise : « Elle peut indiquer… ».)
+
+**Les 3 copies complètes sous v2 :**
+
+| Photo | Temps | Valeurs préservées |
+|---|---|---|
+| bonne | 135 s ⚠️ | 5, 13, récurrence complète, 4093 ✅ |
+| fausse | 87 s | 11, arithmétique raison 3, 1+3n, 31 ✅ |
+| brouillon | 121 s | 5, 13, récurrence (« Mentionnons/Hérité » : légère dérive de mots), 4093 ✅ |
+
+## Critères Gate 1b
+
+- [x] Copie partielle × 2 : aucun des contenus interdits (« récurrence »,
+      « hérédité », « 4093 », « 4 × 2^n ») dans les transcriptions
+- [x] Les 3 copies complètes préservent leurs valeurs sous prompt v2
+- ⚠️ Latence : 135 s sur la bonne copie (barre Gate 1 : 120 s) — la charge CPU
+  varie ; l'UI annonce déjà « ~1–2 min ». À surveiller à la Gate 2.
+
+**Gate 1b : PASSÉE avec le prompt v2** — implémentation §1–§6 autorisée avec
+cette version.
