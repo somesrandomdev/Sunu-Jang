@@ -163,3 +163,54 @@ limite **préexistante** du modèle de correction (3b, hors périmètre
 REVIEW_4_scan) ; candidats d'amélioration ultérieure : demander explicitement
 la ligne « Total : n/20 » par question dans un format plus contraint, ou monter
 le barème dans le prompt système.
+
+---
+
+# Gate 2 bis — après « note = somme des points par question » (19/10/2026, soir)
+
+Correctif : `_note_depuis_correction` (app/tutor.py) — somme des lignes
+« Qn : a/b » si chaque a ≤ b et Σb = 20, sinon « Total : n/20 », sinon note JSON.
+Re-mesure : éval d'abord (6/8, aucune régression — voir `eval_results.md`), puis
+les 4 photos en séquentiel, processus seul. Script jetable (scratchpad, non commité)
+appelant `transcrire_copie` puis `grade_answer` sur EX_SUITES, avec un espion sur
+`chat_json` pour relever la note JSON brute.
+
+| Photo | Transcr. | Corr. | Lignes Q lues | Σ dénominateurs | Note JSON | Note finale | Attendu | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| suites_bonne | 156 s | 72 s | Q1 4/4 seule | 4 → repli | 12 | **12** | ≥ 14 | ❌ |
+| suites_fausse | 90 s | 86 s | Q1 4/4, Q3 4/4 | 8 → repli | 8 | **8** | ≤ 8 | ✅ |
+| suites_brouillon | 127 s | 72 s | Q1 4/4, Q2 12/12, Q3 0/4 | 20 ✅ | 15 (Total 15/20) | **16** | — | ✅ utilisable |
+| suites_partielle | 82 s | 66 s | Q1 4/4 seule | 4 → repli | 8 | **8** | ≤ 6 | ❌ |
+
+## Analyse
+
+- **Le correctif fait ce qu'il doit, mais ne s'est déclenché qu'une fois sur 4.**
+  Sur bonne / fausse / partielle, le 3b n'a écrit qu'une partie des lignes
+  « Qn : a/b » (le reste de la correction est en prose, sans points) : Σb ≠ 20 →
+  repli correct sur la note JSON, qui reste fausse (12 pour bonne, 8 pour partielle).
+  À la Gate 2, il avait écrit les 3 lignes (4 + 12 + 4) ; cette fois non — même
+  instabilité de format d'un run à l'autre.
+- **partielle** : seule la Q1 est traitée ; une notation juste serait 4/20. Le
+  modèle écrit bien « Q1 : 4/4 » mais ne note pas les questions non traitées ;
+  la note JSON (8) est trop généreuse.
+- **brouillon** : la somme (16) l'emporte sur « Total : 15/20 » (ordre voulu) ;
+  le détail est lui-même faux (« Q3 : 0/4 … 4093, ce qui est faux »).
+- **Transcription bonne** : cette fois l'étape « − 6 + 3 » de l'hérédité est
+  sautée (« 8 × 2ⁿ − 3 » directement) — elle était préservée aux Gates 1/2.
+  Le résultat reste mathématiquement juste ; c'est le correcteur qui y voit des
+  « erreurs » inexistantes.
+- Latences transcription 82–156 s (modèle froid à chaque photo, processus seul) :
+  au-dessus de la barre 120 s sur bonne et brouillon.
+
+## Critères
+
+| Critère | Résultat |
+|---|---|
+| suites_bonne ≥ 14 | ❌ 12 |
+| suites_fausse ≤ 8 | ✅ 8 |
+| suites_partielle ≤ 6 | ❌ 8 |
+
+**→ toujours PAS DE MERGE.** Piste suivante (non implémentée, à décider) : le
+barème d'EX_SUITES est connu (Q1 4, Q2 12, Q3 4) — on pourrait exiger une ligne
+par question du barème dans le prompt, et/ou compter 0 pour une question du
+barème absente du détail quand au moins une ligne Q est présente.
