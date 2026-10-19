@@ -4,8 +4,7 @@
 sénégalais, qui tourne **entièrement en local** sur votre machine : aucun coût par
 exercice, aucune donnée qui sort, aucun abonnement — même sans internet.
 
-🎬 **Démo vidéo (2 min 58) :** _(lien YouTube « non répertorié » à coller ici après
-l'upload — checklist de soumission)_
+🎬 **Démo vidéo (2 min 58) :** https://youtu.be/tdOB__0e2DY
 
 ## Le problème
 
