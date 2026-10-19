@@ -59,14 +59,43 @@ def generate_exercise(
 # Ligne « Total : n/20 » demandée au modèle dans correction_detaillee ; la note
 # JSON est parfois incohérente avec cette somme détaillée, on s'y fie en priorité.
 _MOTIF_TOTAL = re.compile(r"Total\s*:\s*(\d+(?:[.,]\d+)?)\s*/\s*20", re.IGNORECASE)
+# Lignes « Q1 : 4/4 » : le modèle détaille souvent un barème juste (somme 20/20)
+# mais met une autre note dans le JSON (Gate 2) — on refait la somme nous-mêmes.
+_MOTIF_QUESTION = re.compile(r"Q\s*(\d+)\s*:\s*(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)")
+
+
+def _nombre(texte: str) -> float:
+    return float(texte.replace(",", "."))
+
+
+def _note_depuis_correction(texte: str) -> float | None:
+    """Note tirée de la correction détaillée, ou None si rien d'exploitable.
+
+    1. Somme des points par question (dernière occurrence de chaque Qn), si
+       chaque numérateur ≤ dénominateur et si les dénominateurs font 20.
+    2. Sinon, la dernière ligne « Total : n/20 ».
+    """
+    questions: dict[str, tuple[float, float]] = {}
+    for numero, points, sur in _MOTIF_QUESTION.findall(texte):
+        questions[numero] = (_nombre(points), _nombre(sur))
+    if (
+        questions
+        and all(points <= sur for points, sur in questions.values())
+        and abs(sum(sur for _, sur in questions.values()) - 20) <= 0.01
+    ):
+        return sum(points for points, _ in questions.values())
+    totaux = _MOTIF_TOTAL.findall(texte)
+    if totaux:
+        return _nombre(totaux[-1])
+    return None
 
 
 def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
     """Note une réponse d'élève sur 20 à partir du corrigé de référence.
 
-    Si la correction contient une ligne « Total : n/20 » (la somme des points
-    attribués question par question), c'est elle qui fait foi : on prend la
-    DERNIÈRE occurrence, passée par le même bornage [0, 20] que la note JSON.
+    La note vient de la correction détaillée quand elle est exploitable
+    (somme des points par question, sinon « Total : n/20 », voir
+    _note_depuis_correction), sinon de la note JSON ; toujours bornée [0, 20].
     """
     if not reponse_eleve.strip():
         raise ValueError("La réponse de l'élève est vide : rien à corriger.")
@@ -85,9 +114,8 @@ def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
         TEMPERATURE_CORRECTION,
         MAX_TOKENS_CORRECTION,
     )
-    totaux = _MOTIF_TOTAL.findall(grade.correction_detaillee)
-    if totaux:
-        note = float(totaux[-1].replace(",", "."))
+    note = _note_depuis_correction(grade.correction_detaillee)
+    if note is not None:
         grade = Grade.model_validate({**grade.model_dump(), "note": note})
     return grade
 

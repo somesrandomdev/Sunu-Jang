@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from app.schemas import Exercise, Grade
 from app.tutor import (
+    _note_depuis_correction,
     generate_exercise,
     grade_answer,
     next_difficulty,
@@ -177,6 +178,50 @@ class TestNoteDepuisTotal:
         grade = self.grade_avec_correction(
             8.0, "Q1 : 15/6. Q2 : 10/14.\nTotal : 25/20", monkeypatch
         )
+        assert grade.note == 20.0
+
+
+class TestNoteDepuisCorrection:
+    """Revue 5 : la somme des points par question fait foi, puis Total, puis JSON."""
+
+    def test_somme_valide(self):
+        assert _note_depuis_correction("Q1 : 4/4. Q2 : 12/12. Q3 : 4/4.") == 20.0
+
+    def test_question_repetee_la_derniere_gagne(self):
+        texte = "Q1 : 1/4. Q2 : 10/12. Q3 : 4/4.\nRelecture : Q1 : 3/4."
+        assert _note_depuis_correction(texte) == 17.0
+
+    def test_denominateurs_differents_de_20_repli_sur_total(self):
+        texte = "Q1 : 6/6. Q2 : 6/6.\nTotal : 15/20"
+        assert _note_depuis_correction(texte) == 15.0
+
+    def test_numerateur_superieur_repli_sur_total(self):
+        texte = "Q1 : 15/6. Q2 : 10/14.\nTotal : 13/20"
+        assert _note_depuis_correction(texte) == 13.0
+
+    def test_virgule_decimale(self):
+        assert _note_depuis_correction("Q1 : 2,5/4. Q2 : 12/12. Q3 : 4/4.") == 18.5
+
+    def test_aucune_ligne_q_repli_total(self):
+        assert _note_depuis_correction("Bien.\nTotal : 11/20") == 11.0
+
+    def test_rien_d_exploitable(self):
+        assert _note_depuis_correction("Q1 : correct. Bien.") is None
+
+    def test_aucune_ligne_q_ni_total_garde_la_note_json(self, monkeypatch):
+        grade = TestNoteDepuisTotal.grade_avec_correction(
+            9.0, "Q1 : correct. Bien.", monkeypatch
+        )
+        assert grade.note == 9.0
+
+    def test_cas_reel_gate_2(self, monkeypatch):
+        correction = (
+            "Q1 : 4/4 — u1 = 5 et u2 = 13, calculs justes.\n"
+            "Q2 : 12/12 — Erreur dans la formule de récurrence : "
+            "8 × 2^n − 6 + 3, ce qui est correct.\n"
+            "Q3 : 4/4 — u10 = 4093."
+        )
+        grade = TestNoteDepuisTotal.grade_avec_correction(12.0, correction, monkeypatch)
         assert grade.note == 20.0
 
 
