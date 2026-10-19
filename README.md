@@ -113,6 +113,8 @@ python -m app.ui                # http://localhost:7860
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | URL de l'API Ollama (compatible OpenAI) |
 | `LLM_MODEL` | `qwen2.5:3b` | Modèle de chat (génération + correction) ; voir `notes/model_smoke_test.md` |
 | `EMBED_MODEL` | `nomic-embed-text` | Modèle d'embeddings du RAG |
+| `VISION_MODEL` | `qwen2.5vl:3b` | Modèle vision (transcription des copies photo — optionnel) |
+| `IMAGE_MAX_PX` | `1024` | Côté maximal d'une photo de copie avant envoi au modèle vision |
 | `LLM_API_KEY` | `ollama` | Clé factice pour Ollama ; utile si vous pointez vers une autre API |
 | `TOP_K` | `3` | Nombre d'extraits d'annales injectés dans le prompt |
 
