@@ -29,6 +29,21 @@ Réponds avec ce JSON exact :
 Remplace chaque <...> par ton contenu réel : ne recopie jamais les chevrons
 ni leur libellé."""
 
+# Transcription d'une copie manuscrite (photo). v2 validée en Gate 1b :
+# PAS d'énoncé complet dans le prompt (le modèle le recopiait pour les
+# questions non traitées), seulement la liste des numéros de questions.
+# Sortie en texte brut — PAS de JSON (le LaTeX y est l'enfer d'échappement).
+TRANSCRIRE_COPIE = """Cette image est la copie manuscrite d'un élève.
+L'exercice comporte les questions 1, 2 et 3.
+
+Transcris FIDÈLEMENT ce que l'élève a écrit, question par question, sans rien corriger,
+sans rien ajouter et sans compléter ce qui manque. Recopie aussi les erreurs.
+Si une question n'est pas traitée sur la copie, écris : [non traitée].
+Écris les formules en LaTeX entre $...$.
+Si un passage est illisible, écris [illisible] à sa place.
+Si l'image ne contient pas de copie d'élève, réponds uniquement : AUCUNE_COPIE
+Réponds uniquement avec la transcription, sans commentaire."""
+
 GRADE_ANSWER = """Corrige la réponse d'un élève de {niveau}.
 
 ÉNONCÉ :
