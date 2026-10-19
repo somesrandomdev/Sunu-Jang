@@ -163,6 +163,7 @@ reporte à la correction détaillée et à son professeur.
 
 ## Feuille de route
 
+- 📷 Correction de copies manuscrites (branche `feat/copie-scannee`)
 - 🗣️ Wolof (bêta), puis **Pulaar** et **Sérère**
 - 📄 Export PDF de la correction
 - 📚 Plus d'annales : SVT série L, épreuves 2ᵉ groupe, années antérieures

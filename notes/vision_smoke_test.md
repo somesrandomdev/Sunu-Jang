@@ -104,3 +104,62 @@ sont pas mentionnées du tout — la spec l'autorise : « Elle peut indiquer… 
 
 **Gate 1b : PASSÉE avec le prompt v2** — implémentation §1–§6 autorisée avec
 cette version.
+
+---
+
+# Gate 2 — bout en bout (19/10/2026, modèle chaud qwen2.5:3b + qwen2.5vl:3b)
+
+Exercice : EX_SUITES de la banque (chemin de démo déterministe, EMBED_MODEL
+invalide → secours banque ; la correction tourne sur le vrai modèle).
+Parcours : lire_copie → transcription non modifiée → corriger — les mêmes
+fonctions d'événement que les boutons « 📷 Lire ma copie » puis « 📝 Corriger ».
+L'upload par l'explorateur de fichiers n'est pas automatisable dans le navigateur
+intégré (limitation de l'outil) ; le câblage DOM (upload → bouton → zone réponse)
+est couvert par les tests unitaires et la config servie sur :7860 contient la
+zone photo (« Lire ma copie », bouton, note photo).
+
+## Résultats
+
+| Photo | Transcription | Note | Total | Verdict |
+|---|---|---|---|---|
+| suites_bonne | 47 s, fidèle (5, 13, récurrence complète, 4093) | **12/20** | 107 s | ⚠️ note (voir drift) |
+| suites_fausse | 14 s, fidèle (11, « arithmétique raison 3 », 31) | **8/20** | 60 s | ✅ erreur réelle détectée |
+| suites_brouillon | 45 s, fidèle (« Mentionnons », 5, 13, 4093) | 12/20 | 107 s | ✅ transcription utilisable |
+| suites_partielle | 4 s (chaud), « Question 1 : (u₁ = 5, u₂ = 13) » seule | 8/20 | 60 s | ✅ rien de fabriqué |
+
+Latences transcription : 4–47 s modèle chaud (barre 120 s largement tenue ;
+le pic Gate 1b à 135 s était de la charge à froid).
+
+## Critères de merge
+
+| Critère | Résultat |
+|---|---|
+| suites_bonne ≥ 14 | ❌ 12/20 |
+| suites_fausse ≤ 8 | ✅ 8/20 |
+| brouillon : erreur propre ou transcription utilisable | ✅ transcription utilisable |
+| CI verte | non testée (branche non poussée — main gelée) |
+
+**→ PAS DE MERGE.** La branche `feat/copie-scannee` reste ouverte ; ligne ajoutée
+à la feuille de route du README.
+
+## Analyse du 12/20 (diagnostic post-Gate 2, 2 ré-essais à l'identique)
+
+La transcription de `suites_bonne` est mathématiquement parfaite, mais le
+correcteur 3b note la même réponse 12 puis 15 selon les essais. Détail crucial :
+
+- **Aucune ligne « Total : n/20 »** dans la correction détaillée → l'override
+  Total n'est pas en cause ; la note vient du champ JSON brut du modèle.
+- Le détail **se contredit** : essai 1 = « Q1 : 4/4 … Q2 : 12/12 … Q3 : 4/4 »
+  (somme 20/20) mais note JSON 12 avec « Erreur dans la formule de récurrence »
+  alors que le même paragraphe dit « ce qui est correct ». Essai 2 : somme 20/20,
+  note JSON 15, « Initialisation incorrecte » … contredite trois lignes plus bas.
+- Même famille de dérive que celle documentée dans `eval_results.md`
+  (2ᵈᵉ degré) : le champ `note` du 3b est parfois incohérent avec son propre
+  barème question par question.
+
+La couche vision (l'objet de cette branche) est validée : 4 transcriptions
+fidèles, zéro hallucination, partielle propre. Le bruit de notation est une
+limite **préexistante** du modèle de correction (3b, hors périmètre
+REVIEW_4_scan) ; candidats d'amélioration ultérieure : demander explicitement
+la ligne « Total : n/20 » par question dans un format plus contraint, ou monter
+le barème dans le prompt système.
