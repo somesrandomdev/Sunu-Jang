@@ -4,10 +4,16 @@ import json
 
 import pytest
 from conftest import FakeClient, installer
+from PIL import Image
 from pydantic import ValidationError
 
 from app.schemas import Exercise, Grade
-from app.tutor import generate_exercise, grade_answer, next_difficulty
+from app.tutor import (
+    generate_exercise,
+    grade_answer,
+    next_difficulty,
+    transcrire_copie,
+)
 
 EXERCICE = Exercise(
     titre="Suites numériques",
@@ -93,6 +99,42 @@ class TestGradeAnswer:
         installer(monkeypatch, FakeClient([json.dumps(r) for r in reponses]))
         grade = grade_answer(EXERCICE, "réponse", "Terminale")
         assert grade.note == 8.0
+
+
+class TestTranscrireCopie:
+    """Revue 4, §4 : photo de copie → texte (modèle vision mocké)."""
+
+    @staticmethod
+    def photo(tmp_path) -> str:
+        chemin = tmp_path / "copie.jpg"
+        Image.new("RGB", (300, 200), color=(245, 245, 245)).save(
+            chemin, format="JPEG"
+        )
+        return str(chemin)
+
+    def test_transcription_normale_renvoyee(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "app.tutor.chat_vision",
+            lambda *_a, **_k: "1. u_1 = 5 et u_2 = 13.\n2. [non traitée]",
+        )
+        resultat = transcrire_copie(EXERCICE, self.photo(tmp_path))
+        assert resultat.startswith("1. u_1 = 5")
+        assert "[non traitée]" in resultat  # renvoyée telle quelle, pas d'erreur
+
+    def test_aucune_copie_refusee(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "app.tutor.chat_vision", lambda *_a, **_k: "AUCUNE_COPIE"
+        )
+        with pytest.raises(ValueError, match="Aucune copie détectée"):
+            transcrire_copie(EXERCICE, self.photo(tmp_path))
+
+    def test_copie_illisible_refusee(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "app.tutor.chat_vision",
+            lambda *_a, **_k: "[illisible]\n[illisible]\nu_1 = 5",
+        )
+        with pytest.raises(ValueError, match="peu lisible"):
+            transcrire_copie(EXERCICE, self.photo(tmp_path))
 
 
 class TestNoteDepuisTotal:

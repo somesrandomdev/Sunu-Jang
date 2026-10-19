@@ -2,12 +2,14 @@
 
 import re
 
-from app.llm import chat_json
+from app.copie import preparer_image
+from app.llm import chat_json, chat_vision
 from app.prompts import (
     CONTEXTE_ANNALE,
     GENERATE_EXERCISE,
     GRADE_ANSWER,
     SYSTEM_FR,
+    TRANSCRIRE_COPIE,
 )
 from app.schemas import Exercise, Grade
 
@@ -88,6 +90,31 @@ def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
         note = float(totaux[-1].replace(",", "."))
         grade = Grade.model_validate({**grade.model_dump(), "note": note})
     return grade
+
+
+def transcrire_copie(exercise: Exercise, chemin: str) -> str:
+    """Transcrit une photo de copie manuscrite avec le modèle vision.
+
+    Renvoie le texte brut (jamais du JSON). ValueError avec message français
+    si l'image ne contient pas de copie ou est trop peu lisible.
+    """
+    image_png = preparer_image(chemin)
+    # PAS d'énoncé dans le prompt (Gate 1b : le modèle le recopiait pour les
+    # questions non traitées) — v2 : liste des questions seulement.
+    texte = chat_vision(
+        "Tu transcris fidèlement des copies manuscrites d'élèves.",
+        TRANSCRIRE_COPIE,
+        image_png,
+    )
+    if texte.strip().upper().startswith("AUCUNE_COPIE"):
+        raise ValueError("Aucune copie détectée sur l'image.")
+    lignes = [ligne for ligne in texte.splitlines() if ligne.strip()]
+    illisibles = sum(1 for ligne in lignes if "[illisible]" in ligne)
+    if lignes and illisibles > len(lignes) / 2:
+        raise ValueError(
+            "Copie trop peu lisible : reprends la photo à plat, bien éclairée."
+        )
+    return texte.strip()
 
 
 def next_difficulty(note: float, current: str) -> str:
