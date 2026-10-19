@@ -2,6 +2,7 @@
 
 import gradio as gr
 import pytest
+from PIL import Image
 
 from app import ui
 from app.banque import BANQUE_PAR_MATIERE, EX_SUITES
@@ -26,6 +27,43 @@ def test_ollama_arrete_pendant_la_recherche_rag_donne_un_toast(monkeypatch):
     monkeypatch.setattr(ui, "retrieve", retrieve_en_panne)
     with pytest.raises(gr.Error, match="Ollama est lancé"):
         ui.generer_exercice("SVT", "Terminale", "moyen", "")
+
+
+class TestLireCopie:
+    """Revue 4, §5 : photo → transcription dans « Ta réponse »."""
+
+    @staticmethod
+    def photo(tmp_path) -> str:
+        chemin = tmp_path / "copie.jpg"
+        Image.new("RGB", (300, 200), color=(245, 245, 245)).save(
+            chemin, format="JPEG"
+        )
+        return str(chemin)
+
+    def test_transcription_remplit_la_reponse(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "app.ui.transcrire_copie",
+            lambda *_a, **_k: "1. u_1 = 5 et u_2 = 13.\n2. [non traitée]",
+        )
+        texte, depuis_photo = ui.lire_copie(EX_SUITES, self.photo(tmp_path))
+        assert texte.startswith("1. u_1 = 5")
+        assert depuis_photo is True
+
+    def test_sans_exercice_refuse(self, tmp_path):
+        with pytest.raises(gr.Error, match="Générez d'abord"):
+            ui.lire_copie(None, self.photo(tmp_path))
+
+    def test_sans_image_refuse(self):
+        with pytest.raises(gr.Error, match="photo de votre copie"):
+            ui.lire_copie(EX_SUITES, None)
+
+    def test_erreur_modele_donnel_erreur_gradio(self, tmp_path, monkeypatch):
+        def transcription_en_panne(*_a, **_k):
+            raise LLMError("Le modèle local ne répond pas.")
+
+        monkeypatch.setattr("app.ui.transcrire_copie", transcription_en_panne)
+        with pytest.raises(gr.Error, match="ne répond pas"):
+            ui.lire_copie(EX_SUITES, self.photo(tmp_path))
 
 
 class TestBanqueDeSecours:
