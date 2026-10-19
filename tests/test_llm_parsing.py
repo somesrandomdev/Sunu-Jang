@@ -10,7 +10,7 @@ from openai import APIStatusError, InternalServerError, NotFoundError
 from pydantic import BaseModel
 
 from app import llm
-from app.llm import LLMError, chat_json, embed
+from app.llm import LLMError, chat_json, chat_vision, embed
 from app.schemas import Exercise
 
 
@@ -178,6 +178,41 @@ class TestErreursApi:
         installer(monkeypatch, FakeClient([erreur_api(404)]))
         with pytest.raises(LLMError, match=llm.LLM_MODEL):
             chat_json("s", "u", Exercice)
+
+
+class TestChatVision:
+    """app.llm.chat_vision — transcription d'image, texte brut (revue 4, §3)."""
+
+    def test_requete_avec_image_url_et_modele_vision(self, monkeypatch):
+        client = installer(monkeypatch, FakeClient(["Transcription."]))
+        resultat = chat_vision("systeme", "transcris", b"\x89PNG-faux")
+        assert resultat == "Transcription."
+        appel = client.appels_chat[0]
+        assert appel["model"] == llm.VISION_MODEL
+        assert appel["temperature"] == 0
+        contenu = appel["messages"][1]["content"]
+        assert contenu[0]["type"] == "text"
+        assert contenu[1]["type"] == "image_url"
+        assert contenu[1]["image_url"]["url"].startswith("data:image/png;base64,")
+
+    def test_sortie_vide_donnel_lmerror(self, monkeypatch):
+        installer(monkeypatch, FakeClient(["   "]))
+        with pytest.raises(LLMError, match="Reprenez la photo"):
+            chat_vision("s", "u", b"\x89PNG")
+
+    def test_404_cite_le_modele_vision(self, monkeypatch):
+        installer(monkeypatch, FakeClient([erreur_api(404)]))
+        with pytest.raises(LLMError, match=llm.VISION_MODEL):
+            chat_vision("s", "u", b"\x89PNG")
+
+    def test_500_deux_fois_llmerror(self, monkeypatch):
+        installer(monkeypatch, FakeClient([erreur_api(500)] * 2))
+        with pytest.raises(LLMError, match="a rencontré une erreur"):
+            chat_vision("s", "u", b"\x89PNG")
+
+    def test_tronque_renvoie_quand_meme_le_texte(self, monkeypatch):
+        installer(monkeypatch, FakeClient([("1. u_1 = 5 et u_2 =", "length")]))
+        assert chat_vision("s", "u", b"\x89PNG") == "1. u_1 = 5 et u_2 ="
 
 
 class TestEmbed:
