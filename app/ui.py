@@ -1,10 +1,13 @@
 """Interface Gradio (Blocks), en français. Lancement : python -m app.ui"""
 
+import logging
+import threading
+
 import gradio as gr
 
 from app.banque import BANQUE_PAR_MATIERE
-from app.config import TOP_K
-from app.llm import LLMError
+from app.config import LLM_MODEL, TOP_K, VISION_MODEL
+from app.llm import LLMError, get_client
 from app.rag import MATIERES_PAR_LIBELLE, charger_index, retrieve
 from app.schemas import Exercise, Grade
 from app.tutor import (
@@ -331,7 +334,40 @@ def construire_demo(mode_sans_annales: bool | None = None):
     return demo
 
 
+logger = logging.getLogger(__name__)
+
+
+def _prechauffer_modeles() -> threading.Thread:
+    """Charge les deux modèles dans Ollama en fond, pour une démo plus fluide.
+
+    Une requête max_tokens=1 (texte seul, même pour le modèle vision) suffit à
+    charger le modèle. Toute erreur est seulement journalisée en WARNING :
+    l'application doit démarrer même si Ollama est éteint.
+    """
+    message = [{"role": "user", "content": "ok"}]
+
+    def _chauffer() -> None:
+        for modele in (LLM_MODEL, VISION_MODEL):
+            try:
+                get_client().chat.completions.create(
+                    model=modele,
+                    messages=message,
+                    max_tokens=1,
+                )
+                logger.info("Modèle préchauffé : %s", modele)
+            except Exception as exc:  # l'app doit démarrer quoi qu'il arrive
+                logger.warning("Préchauffage de %s ignoré : %s", modele, exc)
+
+    thread = threading.Thread(target=_chauffer, name="prechauffage", daemon=True)
+    thread.start()
+    return thread
+
+
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s"
+    )
+    _prechauffer_modeles()
     construire_demo().launch()
 
 

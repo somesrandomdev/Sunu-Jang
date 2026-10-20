@@ -116,3 +116,35 @@ class TestBanqueDeSecours:
         assert resultat[2] is exercice_mock
         assert "banque" not in _valeur(resultat[1])
         assert "maths_S2_2023.pdf" in _valeur(resultat[1])
+
+
+class TestPrechauffage:
+    """Revue 6, Step B : le préchauffage ne doit jamais empêcher le lancement."""
+
+    def test_deux_appels_max_tokens_1_les_deux_modeles(self, monkeypatch):
+        from conftest import FakeClient, installer
+
+        from app.config import LLM_MODEL, VISION_MODEL
+
+        client = installer(monkeypatch, FakeClient(["ok", "ok"]))
+        ui._prechauffer_modeles().join()
+        assert len(client.appels_chat) == 2
+        assert [appel["model"] for appel in client.appels_chat] == [
+            LLM_MODEL,
+            VISION_MODEL,
+        ]
+        assert all(appel["max_tokens"] == 1 for appel in client.appels_chat)
+
+    def test_une_panne_ne_propage_rien(self, monkeypatch, caplog):
+        import logging
+
+        from conftest import FakeClient, installer
+
+        installer(
+            monkeypatch,
+            FakeClient([RuntimeError("Ollama est éteint"), RuntimeError("idem")]),
+        )
+        with caplog.at_level(logging.WARNING, logger="app.ui"):
+            ui._prechauffer_modeles().join()  # ne lève rien
+        assert "Préchauffage" in caplog.text
+        assert "ignoré" in caplog.text
