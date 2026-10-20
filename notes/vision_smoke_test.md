@@ -222,7 +222,8 @@ barème absente du détail quand au moins une ligne Q est présente.
 Protocole demandé : rejouer le chemin Gate 2 (transcription puis correction,
 sans modification) pour `suites_bonne` et `suites_partielle`, et coller ici la
 `correction_detaillee` brute **intégrale** avec la transcription envoyée au
-correcteur. Aucun changement de code.
+correcteur. Aucun changement de code. État du code pendant ces runs : branche
+avec le correctif 69c80bd (note = somme des lignes Qn) déjà actif.
 
 Contexte machine : Ollama relancé avec `OLLAMA_KEEP_ALIVE=30m` et
 `OLLAMA_MAX_LOADED_MODELS=2` (en plus de `OLLAMA_MODELS` et
@@ -292,28 +293,42 @@ seulement calculer u1 et u2, mais aussi démontrer la formule par récurrence.
   `Q3 : 4/4` — c'est-à-dire `Q<n> : <points>/<max>` (deux-points, barre
   directe, sans « points », sans gras, sans parenthèses). Aucune des variantes
   listées (`Question 2 : 12/12`, `**Q2** : 12/12`, `Q2 = 12/12`,
-  `Q2 : 12 / 12 points`, `Q2 (12/12)`, `2) 12/12`) n'apparaît.
-- **La ligne « Total : n/20 » est ABSENTE des deux corrections** (et des
-  4 corrections capturées depuis la Gate 2). Le override Total du tutor ne
-  déclenche donc jamais ici : c'est le champ JSON `note` seul qui fait la note.
+  `Q2 : 12 / 12 points`, `Q2 (12/12)`, `2) 12/12`) n'apparaît. C'est la même
+  forme que celle qu'exploite `_note_depuis_correction` (commit 69c80bd).
+- **La ligne « Total : n/20 » est ABSENTE de toutes les corrections capturées
+  depuis la Gate 2 (6 au total)** : l'override Total ne déclenche jamais dans
+  le flux photo.
 - Pour la copie partielle, le modèle **n'écrit pas de lignes Q2/Q3 du tout**
   (pas de « Q2 : 0/12 ») : il n'existe aucune structure question-par-question
   exploitable pour les questions non traitées — seulement la prose (« il a
-  omis de démontrer… »).
+  omis de démontrer… »). Cohérent avec la Gate 2 bis.
 
-## Ce que ces extraits montrent
+## Lecture correcte des notes Step 1 (correction d'une analyse erronée
+committée plus tôt dans cette section)
 
-1. La notation interne est cohérente et STABLE : `4 + 12 + 4 = 20` à chaque
-   capture ; la somme des lignes `Qn : p/max` vaut 20/20 pour la copie parfaite
-   dans les 5 captures dont on dispose (Gate 2 + diagnostics + Step 1).
-2. Le champ `note` du JSON est LUI instable : **12 (Gate 2) → 12 (diag 1) →
-   15 (diag 2) → 20 (Step 1)** pour la MÊME transcription. Il se contredit
-   parfois avec son propre détail (diag 1 : somme 20, note 12).
-3. Incohérence token-level dans la ligne Q1 du Step 1 : le modèle qualifie
+Ces runs tournent AVEC le correctif 69c80bd déjà en place. Donc :
+
+1. **bonne = 20/20 vient de la SOMME des lignes Q** (4 + 12 + 4, Σdénominateurs
+   = 20 → override), pas du champ JSON. La note affichée suit le détail quand
+   le détail est complet — c'est le correctif qui fait son travail.
+2. **partielle = 8/20 est la note JSON brute** : une seule ligne Q (Σb = 4 ≠ 20)
+   → repli sur le JSON. La ligne chiffrée dit 4/4 ; les 4 points supplémentaires
+   (8 − 4) ne sont écrits nulle part. La note sur-credit la copie, mais compter
+   0 pour les questions absentes est une piste rejetée en Step 2 de la review.
+3. **L'instabilité est dans le FORMAT de sortie, pas dans les lignes elles-mêmes** :
+   quand le modèle écrit le barème complet, les lignes sont stables et somment à
+   20/20 (Gate 2, diag 1, diag 2, Step 1 — 4 captures sur 5 ; la Gate 2 bis
+   n'avait eu qu'« Q1 : 4/4 »). Ce qui varie d'un run à l'autre, c'est S'IL écrit
+   toutes les lignes, et la note JSON quand il ne les écrit pas :
+   12 (Gate 2, JSON), 12 (diag 1, JSON), 15 (diag 2, JSON), 8 (Step 1, JSON,
+   copie partielle).
+4. Incohérence token-level dans la ligne Q1 du Step 1 : le modèle qualifie
    « faux » une formule puis donne comme « formule correcte » exactement la
-   même formule — tout en attribuant 4/4 et un total de 20.
-4. Sur la copie partielle : note JSON 8 alors que la seule ligne chiffrée dit
-   Q1 : 4/4 (= 4). Les 4 points supplémentaires ne sont écrits nulle part.
+   même formule — sans impact sur les points (4/4) ici, mais c'est le même
+   bruit que celui qui contredisait somme et note JSON avant correctif.
 
-Conclusion (à valider avant tout correctif) : le signal fiable est la somme des
-lignes `Qn : p/max` ; le signal bruité est le champ `note` global.
+Conclusion (à valider avant tout correctif) : les lignes `Qn : a/b` sont le
+signal fiable **quand elles sont toutes présentes** ; le point de fragilité
+restant est le run où le modèle n'écrit qu'une partie du barème (repli JSON
+bruité). C'est exactement le cas « Gate 2 bis » — et la piste « compter 0 »
+pour ce cas est rejetée en Step 2.
