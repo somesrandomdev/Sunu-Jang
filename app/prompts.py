@@ -78,9 +78,14 @@ barème à la lettre : un élément de méthode demandé, présent et pertinent,
 reçoit ses points ; ne retire des points que sur ce que le barème mesure.
 Sois concis : correction_detaillee en 10 lignes maximum, un seul conseil court.
 
+Dans points_par_question, mets UNE entrée par question du barème, dans l'ordre,
+y compris les questions non traitées par l'élève (obtenu = 0).
+La somme des max doit faire 20.
+
 Réponds avec ce JSON exact :
 {{
   "note": <nombre entre 0 et 20>,
+  "points_par_question": [{{"question": "Q1", "obtenu": <points>, "max": <points du barème>}}],
   "points_forts": ["<point fort 1>", "<point fort 2>"],
   "erreurs": ["<erreur 1>", "<erreur 2>"],
   "correction_detaillee": "<correction complète, étape par étape, avec les calculs>",

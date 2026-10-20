@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from app import llm
 from app.llm import LLMError, chat_json, chat_vision, embed
-from app.schemas import Exercise
+from app.schemas import Exercise, Grade, PointsQuestion
 
 
 def erreur_api(status: int) -> APIStatusError:
@@ -250,3 +250,75 @@ class TestEmbed:
         monkeypatch.setattr(llm, "EMBED_BATCH_SIZE", 2)
         embed(["a", "b", "c"])
         assert [len(lot) for lot in client.appels_embed] == [2, 1]
+
+
+class TestPointsParQuestion:
+    """Le validateur de Grade écarte silencieusement les entrées cassées."""
+
+    @staticmethod
+    def grade_avec_points(entrees: object) -> list[PointsQuestion]:
+        return Grade(
+            note=10,
+            points_forts=["x"],
+            erreurs=[],
+            correction_detaillee="détail",
+            conseil="conseil",
+            points_par_question=entrees,
+        ).points_par_question
+
+    def test_entree_valide_conservee(self):
+        points = self.grade_avec_points([{"question": "Q1", "obtenu": 4, "max": 4}])
+        assert points == [PointsQuestion(question="Q1", obtenu=4.0, max=4.0)]
+
+    def test_chaine_numerique_acceptee(self):
+        points = self.grade_avec_points(
+            [{"question": "Q1", "obtenu": "2,5", "max": "4"}]
+        )
+        assert (points[0].obtenu, points[0].max) == (2.5, 4.0)
+
+    def test_cle_manquante_ecartee(self):
+        assert self.grade_avec_points([{"question": "Q1", "obtenu": 4}]) == []
+
+    def test_non_numerique_ecarte(self):
+        points = self.grade_avec_points(
+            [{"question": "Q1", "obtenu": "quatre", "max": 4}]
+        )
+        assert points == []
+
+    def test_obtenu_negatif_ecarte(self):
+        points = self.grade_avec_points([{"question": "Q1", "obtenu": -1, "max": 4}])
+        assert points == []
+
+    def test_max_nul_ou_negatif_ecarte(self):
+        assert self.grade_avec_points([{"question": "Q1", "obtenu": 0, "max": 0}]) == []
+        assert self.grade_avec_points([{"question": "Q1", "obtenu": 1, "max": -4}]) == []
+
+    def test_obtenu_superieur_au_max_ecarte(self):
+        points = self.grade_avec_points([{"question": "Q1", "obtenu": 5, "max": 4}])
+        assert points == []
+
+    def test_les_entrees_bonnes_sont_gardees_parmi_les_cassees(self):
+        points = self.grade_avec_points(
+            [
+                {"question": "Q1", "obtenu": 4, "max": 4},
+                "pas un dict",
+                {"question": "Q2", "obtenu": 12, "max": 12},
+                {"question": "Q3", "obtenu": 4093, "max": 4},
+            ]
+        )
+        assert [p.question for p in points] == ["Q1", "Q2"]
+
+    def test_champ_non_liste_devient_vide(self):
+        assert self.grade_avec_points(None) == []
+        assert self.grade_avec_points({"question": "Q1"}) == []
+        assert self.grade_avec_points("Q1 : 4/4") == []
+
+    def test_champ_absent_vaut_liste_vide(self):
+        grade = Grade(
+            note=10,
+            points_forts=["x"],
+            erreurs=[],
+            correction_detaillee="détail",
+            conseil="conseil",
+        )
+        assert grade.points_par_question == []

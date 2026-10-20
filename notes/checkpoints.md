@@ -199,3 +199,7 @@ en français. Capture : `docs/img/capture-correction.png`.
   dans le JSON, timeout porté de 120 à 180 s (les générations à 900 tokens
   dépassaient 120 s sur ce CPU), timeout non réessayé après dépassement.
   Aucune dépendance nouvelle par rapport à §2.
+- Revue 6 (Step A) : `MAX_TOKENS_CORRECTION` porté de 520 à 620 — le nouveau
+  champ `points_par_question` du JSON de correction coûte ~60 tokens de sortie ;
+  sans cette marge, les corrections à barème long risquaient la troncature
+  (réessai « length » = un second appel, donc latence doublée).

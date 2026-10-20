@@ -1,5 +1,6 @@
 """Logique métier : generate_exercise, grade_answer, next_difficulty."""
 
+import logging
 import re
 
 from app.copie import preparer_image
@@ -13,6 +14,8 @@ from app.prompts import (
 )
 from app.schemas import Exercise, Grade
 
+logger = logging.getLogger(__name__)
+
 THEME_PAR_DEFAUT = "au choix, conforme au programme"
 
 # Générations : un peu de créativité ; corrections : déterministe (PLAN.md §6 M1).
@@ -21,7 +24,7 @@ TEMPERATURE_CORRECTION = 0.1
 # Bornes de longueur de sortie : les petits modèles locaux ignorent parfois
 # les consignes de concision, ce qui fait exploser la latence CPU.
 MAX_TOKENS_GENERATION = 900
-MAX_TOKENS_CORRECTION = 520
+MAX_TOKENS_CORRECTION = 620  # le champ points_par_question coûte ~60 tokens
 
 DIFFICULTES = ["facile", "moyen", "difficile"]
 
@@ -68,34 +71,44 @@ def _nombre(texte: str) -> float:
     return float(texte.replace(",", "."))
 
 
-def _note_depuis_correction(texte: str) -> float | None:
-    """Note tirée de la correction détaillée, ou None si rien d'exploitable.
+def _note_finale(grade: Grade) -> tuple[float, str]:
+    """Note finale et sa source, par ordre de fiabilité décroissante.
 
-    1. Somme des points par question (dernière occurrence de chaque Qn), si
-       chaque numérateur ≤ dénominateur et si les dénominateurs font 20.
-    2. Sinon, la dernière ligne « Total : n/20 ».
+    - "points" : le champ points_par_question du JSON, si exploitable
+      (≥ 1 entrée, questions uniques, somme des max = 20) → somme des obtenu ;
+    - "lignes" : les lignes « Qn : a/b » de la correction détaillée
+      (dernière occurrence de chaque Qn, chaque a ≤ b, somme des b = 20) ;
+    - "total" : la dernière ligne « Total : n/20 » ;
+    - "json" : le champ note du modèle (dernier recours, le plus bruité :
+      12/20 pour une copie à 20/20 — voir notes/vision_smoke_test.md).
     """
+    entrees = grade.points_par_question
+    if (
+        entrees
+        and len({entree.question for entree in entrees}) == len(entrees)
+        and abs(sum(entree.max for entree in entrees) - 20) <= 0.01
+    ):
+        return sum(entree.obtenu for entree in entrees), "points"
     questions: dict[str, tuple[float, float]] = {}
-    for numero, points, sur in _MOTIF_QUESTION.findall(texte):
+    for numero, points, sur in _MOTIF_QUESTION.findall(grade.correction_detaillee):
         questions[numero] = (_nombre(points), _nombre(sur))
     if (
         questions
         and all(points <= sur for points, sur in questions.values())
         and abs(sum(sur for _, sur in questions.values()) - 20) <= 0.01
     ):
-        return sum(points for points, _ in questions.values())
-    totaux = _MOTIF_TOTAL.findall(texte)
+        return sum(points for points, _ in questions.values()), "lignes"
+    totaux = _MOTIF_TOTAL.findall(grade.correction_detaillee)
     if totaux:
-        return _nombre(totaux[-1])
-    return None
+        return _nombre(totaux[-1]), "total"
+    return grade.note, "json"
 
 
 def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
     """Note une réponse d'élève sur 20 à partir du corrigé de référence.
 
-    La note vient de la correction détaillée quand elle est exploitable
-    (somme des points par question, sinon « Total : n/20 », voir
-    _note_depuis_correction), sinon de la note JSON ; toujours bornée [0, 20].
+    La note vient de _note_finale (points_par_question, puis lignes « Qn »,
+    puis « Total : n/20 », puis note JSON) ; toujours bornée [0, 20].
     """
     if not reponse_eleve.strip():
         raise ValueError("La réponse de l'élève est vide : rien à corriger.")
@@ -114,10 +127,9 @@ def grade_answer(exercise: Exercise, reponse_eleve: str, niveau: str) -> Grade:
         TEMPERATURE_CORRECTION,
         MAX_TOKENS_CORRECTION,
     )
-    note = _note_depuis_correction(grade.correction_detaillee)
-    if note is not None:
-        grade = Grade.model_validate({**grade.model_dump(), "note": note})
-    return grade
+    note, source = _note_finale(grade)
+    logger.info("Note %.1f/20 — source : %s", note, source)
+    return Grade.model_validate({**grade.model_dump(), "note": note})
 
 
 def transcrire_copie(exercise: Exercise, chemin: str) -> str:

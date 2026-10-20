@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from app.schemas import Exercise, Grade
 from app.tutor import (
-    _note_depuis_correction,
+    _note_finale,
     generate_exercise,
     grade_answer,
     next_difficulty,
@@ -39,6 +39,18 @@ REPONSE_GRADE = {
     "correction_detaillee": "1. Initialisation... 2. Hérédité...",
     "conseil": "Recalculer chaque étape à voix haute.",
 }
+
+
+def grade_pour_correction(note_json: float, correction: str, points=None) -> Grade:
+    """Grade de test avec une correction détaillée et un champ points donné."""
+    return Grade(
+        note=note_json,
+        points_forts=["démarche récursive comprise"],
+        erreurs=[],
+        correction_detaillee=correction,
+        conseil="Recalculer chaque étape à voix haute.",
+        points_par_question=points or [],
+    )
 
 
 class TestGenerateExercise:
@@ -181,32 +193,38 @@ class TestNoteDepuisTotal:
         assert grade.note == 20.0
 
 
-class TestNoteDepuisCorrection:
-    """Revue 5 : la somme des points par question fait foi, puis Total, puis JSON."""
+class TestNoteFinaleSourcesLignesEtTotal:
+    """Sources « lignes », « total » et « json » de _note_finale (revue 5)."""
 
     def test_somme_valide(self):
-        assert _note_depuis_correction("Q1 : 4/4. Q2 : 12/12. Q3 : 4/4.") == 20.0
+        grade = grade_pour_correction(12.0, "Q1 : 4/4. Q2 : 12/12. Q3 : 4/4.")
+        assert _note_finale(grade) == (20.0, "lignes")
 
     def test_question_repetee_la_derniere_gagne(self):
         texte = "Q1 : 1/4. Q2 : 10/12. Q3 : 4/4.\nRelecture : Q1 : 3/4."
-        assert _note_depuis_correction(texte) == 17.0
+        assert _note_finale(grade_pour_correction(12.0, texte)) == (17.0, "lignes")
 
     def test_denominateurs_differents_de_20_repli_sur_total(self):
-        texte = "Q1 : 6/6. Q2 : 6/6.\nTotal : 15/20"
-        assert _note_depuis_correction(texte) == 15.0
+        grade = grade_pour_correction(12.0, "Q1 : 6/6. Q2 : 6/6.\nTotal : 15/20")
+        assert _note_finale(grade) == (15.0, "total")
 
     def test_numerateur_superieur_repli_sur_total(self):
-        texte = "Q1 : 15/6. Q2 : 10/14.\nTotal : 13/20"
-        assert _note_depuis_correction(texte) == 13.0
+        grade = grade_pour_correction(12.0, "Q1 : 15/6. Q2 : 10/14.\nTotal : 13/20")
+        assert _note_finale(grade) == (13.0, "total")
 
     def test_virgule_decimale(self):
-        assert _note_depuis_correction("Q1 : 2,5/4. Q2 : 12/12. Q3 : 4/4.") == 18.5
+        grade = grade_pour_correction(12.0, "Q1 : 2,5/4. Q2 : 12/12. Q3 : 4/4.")
+        assert _note_finale(grade) == (18.5, "lignes")
 
     def test_aucune_ligne_q_repli_total(self):
-        assert _note_depuis_correction("Bien.\nTotal : 11/20") == 11.0
+        assert _note_finale(grade_pour_correction(12.0, "Bien.\nTotal : 11/20")) == (
+            11.0,
+            "total",
+        )
 
-    def test_rien_d_exploitable(self):
-        assert _note_depuis_correction("Q1 : correct. Bien.") is None
+    def test_rien_d_exploitable_garde_la_note_json(self):
+        grade = grade_pour_correction(9.0, "Q1 : correct. Bien.")
+        assert _note_finale(grade) == (9.0, "json")
 
     def test_aucune_ligne_q_ni_total_garde_la_note_json(self, monkeypatch):
         grade = TestNoteDepuisTotal.grade_avec_correction(
@@ -223,6 +241,87 @@ class TestNoteDepuisCorrection:
         )
         grade = TestNoteDepuisTotal.grade_avec_correction(12.0, correction, monkeypatch)
         assert grade.note == 20.0
+
+
+class TestNoteFinalePointsParQuestion:
+    """Revue 6, Step A : le champ points_par_question du JSON fait foi."""
+
+    @staticmethod
+    def corriger(monkeypatch, points: list, correction: str = "Détail de la note.") -> Grade:
+        reponse = {
+            **REPONSE_GRADE,
+            "correction_detaillee": correction,
+            "points_par_question": points,
+        }
+        installer(monkeypatch, FakeClient([json.dumps(reponse)]))
+        return grade_answer(EXERCICE, "réponse d'élève", "Terminale")
+
+    def test_champ_valide_la_somme_fait_foi(self, monkeypatch):
+        points = [
+            {"question": "Q1", "obtenu": 4, "max": 4},
+            {"question": "Q2", "obtenu": 12, "max": 12},
+            {"question": "Q3", "obtenu": 4, "max": 4},
+        ]
+        grade = self.corriger(monkeypatch, points)
+        assert grade.note == 20.0
+        assert [p.question for p in grade.points_par_question] == ["Q1", "Q2", "Q3"]
+        assert _note_finale(grade) == (20.0, "points")
+
+    def test_somme_max_differente_de_20_repli_sur_lignes(self, monkeypatch):
+        points = [
+            {"question": "Q1", "obtenu": 4, "max": 4},
+            {"question": "Q2", "obtenu": 6, "max": 12},
+        ]
+        grade = self.corriger(monkeypatch, points, "Q1 : 4/4. Q2 : 12/12. Q3 : 4/4.")
+        assert grade.note == 20.0
+        assert _note_finale(grade) == (20.0, "lignes")
+
+    def test_entree_mal_formee_ecartee_repli_si_somme_plus_20(self, monkeypatch):
+        points = [
+            {"question": "Q1", "obtenu": 4, "max": 4},
+            {"question": "Q2", "obtenu": 15, "max": 12},  # obtenu > max : écartée
+            {"question": "Q3", "obtenu": 4, "max": 4},
+        ]
+        grade = self.corriger(monkeypatch, points, "Q1 : 4/4. Q2 : 12/12. Q3 : 4/4.")
+        assert [p.question for p in grade.points_par_question] == ["Q1", "Q3"]
+        assert grade.note == 20.0
+        assert _note_finale(grade) == (20.0, "lignes")
+
+    def test_entree_mal_formee_ecartee_le_reste_valide_est_utilise(self, monkeypatch):
+        points = [
+            {"question": "Q1", "obtenu": 4, "max": 4},
+            {"question": "Q2", "obtenu": 12, "max": 12},
+            {"question": "Q3", "obtenu": 4, "max": 4},
+            {"question": "Q4"},  # clés manquantes : écartée, le reste sommant à 20
+        ]
+        grade = self.corriger(monkeypatch, points)
+        assert grade.note == 20.0
+        assert _note_finale(grade) == (20.0, "points")
+
+    def test_champ_vide_la_chaine_est_inchangee(self, monkeypatch):
+        grade = self.corriger(monkeypatch, [], "Q1 : 4/4. Q2 : 12/12. Q3 : 4/4.")
+        assert grade.note == 20.0
+        assert _note_finale(grade) == (20.0, "lignes")
+
+    def test_question_non_traitee_comptee_a_zero(self, monkeypatch):
+        points = [
+            {"question": "Q1", "obtenu": 4, "max": 4},
+            {"question": "Q2", "obtenu": 0, "max": 12},
+            {"question": "Q3", "obtenu": 4, "max": 4},
+        ]
+        grade = self.corriger(monkeypatch, points)
+        assert grade.note == 8.0
+        assert _note_finale(grade) == (8.0, "points")
+
+    def test_cas_partiel_trois_questions(self, monkeypatch):
+        points = [
+            {"question": "Q1", "obtenu": 4, "max": 4},
+            {"question": "Q2", "obtenu": 0, "max": 12},
+            {"question": "Q3", "obtenu": 0, "max": 4},
+        ]
+        grade = self.corriger(monkeypatch, points)
+        assert grade.note == 4.0
+        assert _note_finale(grade) == (4.0, "points")
 
 
 class TestNextDifficulty:
