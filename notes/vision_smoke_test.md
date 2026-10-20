@@ -214,3 +214,106 @@ appelant `transcrire_copie` puis `grade_answer` sur EX_SUITES, avec un espion su
 barème d'EX_SUITES est connu (Q1 4, Q2 12, Q3 4) — on pourrait exiger une ligne
 par question du barème dans le prompt, et/ou compter 0 pour une question du
 barème absente du détail quand au moins une ligne Q est présente.
+
+---
+
+# Diagnostic notation (Step 1 de la review du 20/10) — extraits BRUTS
+
+Protocole demandé : rejouer le chemin Gate 2 (transcription puis correction,
+sans modification) pour `suites_bonne` et `suites_partielle`, et coller ici la
+`correction_detaillee` brute **intégrale** avec la transcription envoyée au
+correcteur. Aucun changement de code.
+
+Contexte machine : Ollama relancé avec `OLLAMA_KEEP_ALIVE=30m` et
+`OLLAMA_MAX_LOADED_MODELS=2` (en plus de `OLLAMA_MODELS` et
+`OLLAMA_CONTEXT_LENGTH=8192`). Deux tentatives ont échoué en APITimeoutError
+(180 s) pendant le chargement à froid du modèle vision puis du modèle chat sur
+machine encore chaude de la veille ; le chemin d'erreur a réagi comme prévu
+(LLMError français, pas de stack trace côté élève). La 3ᵉ tentative, modèles
+résidents, passe. Temps : transcription 21 s (bonne) / 59 s (partielle),
+correction ~30-35 s.
+
+## suites_bonne — transcription envoyée au correcteur (21 s)
+
+```
+1. \( u_1 = 2 \times 1 + 3 = 5 \)
+   et \( u_2 = 2 \times 5 + 3 = 13 \)
+
+2. Montrons par récurrence que \( u_n = 4 \times 2^n - 3 \).
+   - Initialisation : \( u_0 = 1 \) et \( 4 \times 2^0 - 3 = 1 \), vrai au rang 0.
+   - Hérédité : supposons \( u_n = 4 \times 2^n - 3 \).
+      Alors \( u_{n+1} = 2u_n + 3 = 2(4 \times 2^n - 3) + 3 \)
+      \( = 8 \times 2^n - 3 = 4 \times 2^{n+1} - 3 \).
+   - Conclusion : pour tout \( n \), \( u_n = 4 \times 2^n - 3 \).
+
+3. \( u_{10} = 4 \times 2^{10} - 3 = 4096 - 3 = 4093 \).
+```
+
+Note obtenue : **20/20** (total 56 s).
+
+### correction_detaillee BRUTE (intégrale, non retouchée)
+
+```
+Q1 : 4/4 — L'élève a bien calculé $u_1$ et $u_2$ correctement. Pour la question
+2, l'élève a bien noté l'initialisation et la hérédité, mais a commis une erreur
+dans la formule de récurrence. Il a écrit $u_{n+1} = 2(4 \times 2^n - 3) + 3
+= 8 \times 2^n - 3 = 4 \times 2^{n+1} - 3$ ce qui est faux. La formule correcte
+serait $u_{n+1} = 2(4 \times 2^n - 3) + 3 = 8 \times 2^n - 3
+= 4 \times 2^{n+1} - 3$. Pour la question 3, l'élève a bien calculé
+$u_{10} = 4 \times 2^{10} - 3 = 4093$.
+
+Q2 : 12/12 — L'élève a bien noté l'initialisation, la hérédité et la conclusion.
+Il a bien noté que $u_0 = 1$ et $4 \times 2^0 - 3 = 1$, donc la propriété est
+vraie pour $n = 0$. Il a bien noté que $u_{n+1} = 2u_n + 3 = 2(4 \times 2^n - 3)
++ 3 = 8 \times 2^n - 3 = 4 \times 2^{n+1} - 3$ ce qui est correct.
+
+Q3 : 4/4 — L'élève a bien noté que $u_{10} = 4 \times 2^{10} - 3 = 4093$.
+```
+
+## suites_partielle — transcription envoyée au correcteur (59 s)
+
+```
+Question 1 : (u₁ = 5, u₂ = 13)
+```
+
+Note obtenue : **8/20** (total 89 s).
+
+### correction_detaillee BRUTE (intégrale, non retouchée)
+
+```
+Q1 : 4/4 — L'élève a correctement calculé u1 et u2. Pour la question 2, il a
+omis de démontrer par récurrence que u_n = 4 × 2^n - 3. Il ne devait pas
+seulement calculer u1 et u2, mais aussi démontrer la formule par récurrence.
+```
+
+## Forme exacte des points, par question
+
+- Forme observée dans les DEUX corrections : `Q1 : 4/4`, `Q2 : 12/12`,
+  `Q3 : 4/4` — c'est-à-dire `Q<n> : <points>/<max>` (deux-points, barre
+  directe, sans « points », sans gras, sans parenthèses). Aucune des variantes
+  listées (`Question 2 : 12/12`, `**Q2** : 12/12`, `Q2 = 12/12`,
+  `Q2 : 12 / 12 points`, `Q2 (12/12)`, `2) 12/12`) n'apparaît.
+- **La ligne « Total : n/20 » est ABSENTE des deux corrections** (et des
+  4 corrections capturées depuis la Gate 2). Le override Total du tutor ne
+  déclenche donc jamais ici : c'est le champ JSON `note` seul qui fait la note.
+- Pour la copie partielle, le modèle **n'écrit pas de lignes Q2/Q3 du tout**
+  (pas de « Q2 : 0/12 ») : il n'existe aucune structure question-par-question
+  exploitable pour les questions non traitées — seulement la prose (« il a
+  omis de démontrer… »).
+
+## Ce que ces extraits montrent
+
+1. La notation interne est cohérente et STABLE : `4 + 12 + 4 = 20` à chaque
+   capture ; la somme des lignes `Qn : p/max` vaut 20/20 pour la copie parfaite
+   dans les 5 captures dont on dispose (Gate 2 + diagnostics + Step 1).
+2. Le champ `note` du JSON est LUI instable : **12 (Gate 2) → 12 (diag 1) →
+   15 (diag 2) → 20 (Step 1)** pour la MÊME transcription. Il se contredit
+   parfois avec son propre détail (diag 1 : somme 20, note 12).
+3. Incohérence token-level dans la ligne Q1 du Step 1 : le modèle qualifie
+   « faux » une formule puis donne comme « formule correcte » exactement la
+   même formule — tout en attribuant 4/4 et un total de 20.
+4. Sur la copie partielle : note JSON 8 alors que la seule ligne chiffrée dit
+   Q1 : 4/4 (= 4). Les 4 points supplémentaires ne sont écrits nulle part.
+
+Conclusion (à valider avant tout correctif) : le signal fiable est la somme des
+lignes `Qn : p/max` ; le signal bruité est le champ `note` global.

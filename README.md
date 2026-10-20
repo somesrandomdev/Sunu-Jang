@@ -123,6 +123,14 @@ Côté **serveur Ollama** (pas du code de l'app) : la variable
 (~2 200 tokens) plus la génération frôlent la limite et peuvent tronquer.
 Vérifiez avec `ollama ps` (colonne CONTEXT) pendant une génération.
 
+Pour la correction de copies photo, deux autres variables serveur aident :
+`OLLAMA_KEEP_ALIVE=30m` garde les deux modèles chargés en mémoire après un
+aller-retour (sinon Ollama décharge au bout de ~5 min et la photo suivante
+paie un rechargement), et `OLLAMA_MAX_LOADED_MODELS=2` autorise le chat et
+le vision à cohabiter au lieu de se remplacer mutuellement à chaque étape.
+Avec 3b+3b sur CPU, comptez ~5,5 Go de RAM pour les deux résidents
+(2,4 Go chat + 3,0 Go vision, mesuré avec `ollama ps`).
+
 ## Performances et matériel
 
 Mesuré sur un CPU portable 4 cœurs (i7-1065G7, sans GPU) :
