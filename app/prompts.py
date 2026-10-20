@@ -29,6 +29,21 @@ Réponds avec ce JSON exact :
 Remplace chaque <...> par ton contenu réel : ne recopie jamais les chevrons
 ni leur libellé."""
 
+# Transcription d'une copie manuscrite (photo). v2 validée en Gate 1b :
+# PAS d'énoncé complet dans le prompt (le modèle le recopiait pour les
+# questions non traitées), seulement la liste des numéros de questions.
+# Sortie en texte brut — PAS de JSON (le LaTeX y est l'enfer d'échappement).
+TRANSCRIRE_COPIE = """Cette image est la copie manuscrite d'un élève.
+L'exercice comporte les questions 1, 2 et 3.
+
+Transcris FIDÈLEMENT ce que l'élève a écrit, question par question, sans rien corriger,
+sans rien ajouter et sans compléter ce qui manque. Recopie aussi les erreurs.
+Si une question n'est pas traitée sur la copie, écris : [non traitée].
+Écris les formules en LaTeX entre $...$.
+Si un passage est illisible, écris [illisible] à sa place.
+Si l'image ne contient pas de copie d'élève, réponds uniquement : AUCUNE_COPIE
+Réponds uniquement avec la transcription, sans commentaire."""
+
 GRADE_ANSWER = """Corrige la réponse d'un élève de {niveau}.
 
 ÉNONCÉ :
@@ -63,9 +78,14 @@ barème à la lettre : un élément de méthode demandé, présent et pertinent,
 reçoit ses points ; ne retire des points que sur ce que le barème mesure.
 Sois concis : correction_detaillee en 10 lignes maximum, un seul conseil court.
 
+Dans points_par_question, mets UNE entrée par question du barème, dans l'ordre,
+y compris les questions non traitées par l'élève (obtenu = 0).
+La somme des max doit faire 20.
+
 Réponds avec ce JSON exact :
 {{
   "note": <nombre entre 0 et 20>,
+  "points_par_question": [{{"question": "Q1", "obtenu": <points>, "max": <points du barème>}}],
   "points_forts": ["<point fort 1>", "<point fort 2>"],
   "erreurs": ["<erreur 1>", "<erreur 2>"],
   "correction_detaillee": "<correction complète, étape par étape, avec les calculs>",

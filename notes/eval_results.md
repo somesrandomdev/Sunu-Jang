@@ -1,44 +1,66 @@
-# Résultats d'évaluation — 2026-10-17 22:12
+# Résultats d'évaluation — 2026-10-19 21:04
 
-Modèle : `qwen2.5:3b` · 3 exécutions par cas · durée : 1259 s
-*(après revue 2 — steps A à D : contexte Ollama 8192, réessais sans ré-append,
-note lue sur « Total : n/20 », banque de secours ; machine refroidie 10 min.
-Toutes les 24 corrections ont produit un Grade : plus aucune erreur de
-parsing/timeout. Cas manqués : 2nd degré bonne (analysé ci-dessous — dérive
-du modèle, pas un effet Step C), MRUA fausse et philo bonne (biais connus
-du 3b : trop laxiste en physique, trop sévère en dissertation).)*
-
-## Analyse du cas « 2nd degré — bonne réponse » (revue 3, 18 oct)
-
-Consigne de la revue : vérifier si l'échec est une régression du Step C
-(note écrasée par un « Total » plus sévère que la note JSON). Trois runs,
-avec les DEUX valeurs (script jetable, non commité ; Ollama 0.40.6) :
-
-| Run | Note JSON | Total lu | Note finale |
-|---|---|---|---|
-| 0 | 11 | 11 | 11 |
-| 1 | 12 | 12 | 12 |
-| 2 | 11 | 11 | 11 |
-
-**Conclusion : ce n'est PAS une régression du Step C.** Note JSON et « Total »
-sont identiques sur les 3 runs — Step C ne change rien ici — et la note du
-modèle est remontée sévère d'elle-même. Chronologie du cas : 15/15 (sonde
-itération 2, 17 oct ~14:45) → 12-13 (éval 15:03, AVANT les steps B-D) →
-12/12 (éval 20:22, avant aussi) → 12-13 (éval 22:12) → 11-12 (18 oct).
-Étiquette honnête : **dérive du modèle d'une session à l'autre sur ce cas**
-(instabilité de notation du 3b), pas un effet du correctif Step C.
-Step C conservé : il corrige le cas inverse (note JSON ≠ somme des points,
-par ex. MRUA 10/20 vs Total 4/20 observé le 17 oct après-midi).
+Modèle : `qwen2.5:3b` · 3 exécutions par cas · durée : 1030 s
+*(après revue 5 : **note = somme des points par question** (lignes « Qn : a/b »
+cohérentes, dénominateurs = 20), sinon « Total : n/20 », sinon note JSON ;
+machine refroidie, processus seul. Non-régression vs 2026-10-17 22:12 (5/8) :
+les 5 cas qui passaient passent toujours ; philo bonne passe désormais (11–12 → 16–20).
+Restent : 2nd degré bonne (12–13) et MRUA fausse (10).)*
 
 | Cas | Attendu | min / max | Pass |
 |---|---|---|---|
-| Maths T · suites — bonne réponse | ≥ 14 | 14.0 / 15.0 | ✅ |
-| Maths T · suites — réponse fausse | ≤ 8 |  8.0 /  8.0 | ✅ |
+| Maths T · suites — bonne réponse | ≥ 14 | 20.0 / 20.0 | ✅ |
+| Maths T · suites — réponse fausse | ≤ 8 |  4.0 /  8.0 | ✅ |
 | Maths 1re · 2nd degré — bonne réponse | ≥ 14 | 12.0 / 13.0 | ❌ |
 | Maths 1re · 2nd degré — réponse fausse | ≤ 8 |  8.0 /  8.0 | ✅ |
 | Physique T · MRUA — bonne réponse | ≥ 14 | 15.0 / 15.0 | ✅ |
-| Physique T · MRUA — réponse fausse | ≤ 8 | 11.0 / 11.0 | ❌ |
-| Philo T · intro dissert — bonne réponse | ≥ 14 | 11.0 / 12.0 | ❌ |
-| Philo T · intro dissert — réponse fausse | ≤ 8 |  8.0 /  8.0 | ✅ |
+| Physique T · MRUA — réponse fausse | ≤ 8 | 10.0 / 10.0 | ❌ |
+| Philo T · intro dissert — bonne réponse | ≥ 14 | 16.0 / 20.0 | ✅ |
+| Philo T · intro dissert — réponse fausse | ≤ 8 |  4.0 /  8.0 | ✅ |
 
 **Succès global : NON**
+
+---
+
+# Résultats — 2026-10-20 10:29 (revue 6, Step C1 : champ points_par_question)
+
+*(Chemin de la note : a) champ JSON `points_par_question` (une entrée par
+question du barème, y compris non traitées, Σmax = 20) → b) lignes « Qn : a/b »
+→ c) « Total : n/20 » → d) note JSON. 8 cas × 3, processus seul, modèles
+préchargés (`OLLAMA_KEEP_ALIVE=30m`). Durée : 1 484 s.)*
+
+| Cas | Attendu | min / max | Sources | Pass |
+|---|---|---|---|---|
+| Maths T · suites — bonne réponse | ≥ 14 | 14.0 / 20.0 | points / json / points | ✅ |
+| Maths T · suites — réponse fausse | ≤ 8 |  4.0 /  8.0 | points / points / points | ✅ |
+| Maths 1re · 2nd degré — bonne réponse | ≥ 14 | 19.0 / 19.0 | points / points / points | ✅ |
+| Maths 1re · 2nd degré — réponse fausse | ≤ 8 |  4.0 /  4.0 | points / points / points | ✅ |
+| Physique T · MRUA — bonne réponse | ≥ 14 | 15.0 / 15.0 | json / json / json | ✅ |
+| Physique T · MRUA — réponse fausse | ≤ 8 |  8.0 / 17.0 | points / json / json | ❌ |
+| Philo T · intro dissert — bonne réponse | ≥ 14 | 20.0 / 20.0 | points / points / points | ✅ |
+| Philo T · intro dissert — réponse fausse | ≤ 8 |  0.0 /  0.0 | points / points / points | ✅ |
+
+**Succès global : NON — mais 7/8 ≥ 6/8, sans régression.**
+
+Comparaison à la table de référence 6/8 (2026-10-19 21:04) :
+
+- Les 6 cas qui passaient passent toujours (non-régression respectée).
+- **2nd degré bonne passe désormais** (12–13 → 19/19, source « points » ×3) :
+  le champ structuré règle le cas qui résistait depuis la revue 5.
+- MRUA fausse échoue toujours, avec plus de variance qu'avant (10/10 stable →
+  8–17) : sur un run, le modèle a rempli `points_par_question` en donnant du
+  barème de méthode à une réponse dont TOUS les résultats numériques sont
+  faux — la règle « en sciences, résultat final faux = 0 » du prompt n'est pas
+  respectée dans le champ structuré (min 8, lui, respecte le seuil).
+
+## Sources sur les 24 runs
+
+| Source | Runs | Remarque |
+|---|---|---|
+| points | 18/24 | le nouveau champ, exploitable dans 18 runs |
+| json | 6/24 | repli quand le champ n'est pas exploitable |
+| lignes / total | 0/24 | plus jamais déclenchés ici |
+
+Repli « json » : MRUA bonne ×3 (15/20 stable — le champ ne sommait pas à 20)
+et MRUA fausse ×2 (8/20), suites bonne ×1 (14/20). Le champ structuré est
+disponible mais imparfait : ~25 % des runs replient sur la note JSON.

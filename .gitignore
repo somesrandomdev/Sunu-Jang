@@ -30,3 +30,5 @@ notes/brut_eval.log
 review-fixes.patch
 scripts/_gen_bench_tmp.py
 demo/
+scripts/_vision_gate_tmp.py
+notes/_ollama_serve.log
