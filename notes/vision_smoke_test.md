@@ -332,3 +332,65 @@ signal fiable **quand elles sont toutes présentes** ; le point de fragilité
 restant est le run où le modèle n'écrit qu'une partie du barème (repli JSON
 bruité). C'est exactement le cas « Gate 2 bis » — et la piste « compter 0 »
 pour ce cas est rejetée en Step 2.
+
+---
+
+# Gate 2 ×3 après Step A/B (revue 6, Step C2 — 20/10/2026, processus seul)
+
+Chemin : `ui.lire_copie` → transcription non modifiée → `grade_answer` sur
+EX_SUITES (banque), 3 runs par photo. Modèles gardés résidents
+(`OLLAMA_KEEP_ALIVE=30m`, `OLLAMA_MAX_LOADED_MODELS=2`), préchauffage Step B.
+Durée totale : ~24 min.
+
+| Photo | Run | Note | Source | Transcr. | Correction | Total |
+|---|---|---|---|---|---|---|
+| bonne | 1 | 20/20 | points | 148 s | 62 s | 210 s |
+| bonne | 2 | 20/20 | lignes | 42 s | 66 s | 108 s |
+| bonne | 3 | 20/20 | lignes | 46 s | 51 s | 97 s |
+| fausse | 1 | 0/20 | points | 95 s | 104 s | 200 s |
+| fausse | 2 | 0/20 | points | 15 s | 65 s | 80 s |
+| fausse | 3 | 0/20 | points | 13 s | 57 s | 70 s |
+| brouillon | 1 | 20/20 | points | 117 s | 87 s | 203 s |
+| brouillon | 2 | 20/20 | points | 46 s | 45 s | 91 s |
+| brouillon | 3 | 20/20 | points | 45 s | 70 s | 115 s |
+| partielle | 1 | 8/20 | points | 90 s | 66 s | 157 s |
+| partielle | 2 | 8/20 | points | 4 s | 55 s | 59 s |
+| partielle | 3 | 8/20 | points | 3 s | 76 s | 80 s |
+
+## Attendu vs obtenu
+
+| Critère | Attendu | Obtenu | Verdict |
+|---|---|---|---|
+| bonne ≥ 14 | 3/3 | **20/20/20** | ✅ 3/3 |
+| fausse ≤ 8 | 3/3 | **0/0/0** | ✅ 3/3 |
+| partielle ≤ 6 | 3/3 | **8/8/8** | ❌ 0/3 |
+| brouillon utilisable | — | transcription fidèle | ✅ |
+
+- **bonne** : 20/20 constant. La cascade de replis a travaillé : run 1 via le
+  champ points, runs 2-3 le champ n'était pas exploitable (Σmax ≠ 20) mais les
+  lignes « Qn » complètes ont pris le relais (« lignes ») — même note.
+- **fausse** : 0/20 constant, source « points » ×3 — le modèle applique
+  désormais la règle « résultat numérique faux = 0 » DANS le champ structuré
+  (avant Step A il notait cette copie 4-8 en JSON et 10 en lignes).
+- **partielle** : 8/20 STABLE (jamais ≤ 6). La copie ne traite que Q1
+  (barème 4 + 12 + 4 : une notation barème-à-la-lettre donnerait 4) ; le
+  modèle accorde 8 de façon constante via le champ points. C'est une
+  sur-attribution stable, pas du bruit — décision à prendre : c'est le modèle
+  qui juge « 8 », pas la mécanique de note.
+- **brouillon** : transcription fidèle (récurrence complète, mêmes légères
+  dérives de mots qu'aux Gates 1-2), note 20/20 ×3.
+- Latence : premier run de chaque photo lent (90–148 s — rechargement vision
+  après l'étape de correction), suivants 3–46 s. Corrections 45–104 s.
+
+## Sources sur les 12 runs Gate 2
+
+points 10/12 · lignes 2/12 · json 0/12 · total 0/12.
+
+## Toutes mesures Step C confondues (24 runs d'eval + 12 runs Gate 2 = 36)
+
+| Source | Runs | Part |
+|---|---|---|
+| points (champ JSON structuré) | 28 | 78 % |
+| json (note brute, repli) | 6 | 17 % |
+| lignes (« Qn : a/b ») | 2 | 5 % |
+| total (« Total : n/20 ») | 0 | 0 % |

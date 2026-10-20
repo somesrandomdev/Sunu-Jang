@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.banque import EX_DISSERT, EX_MOUVEMENT, EX_SECOND_DEGRE, EX_SUITES
 from app.llm import LLMError
 from app.schemas import Exercise
-from app.tutor import grade_answer
+from app.tutor import _note_finale, grade_answer
 
 SEUIL_BONNE = 14.0
 SEUIL_FAUSSE = 8.0
@@ -125,12 +125,15 @@ def executer(runs: int) -> tuple[list[str], bool]:
     succes_global = True
     for cas in CAS:
         notes: list[float | None] = []
+        sources: list[str] = []
         for _ in range(runs):
             try:
                 grade = grade_answer(cas.exercice, cas.reponse, "Terminale")
                 notes.append(grade.note)
+                sources.append(_note_finale(grade)[1])
             except LLMError:
                 notes.append(None)
+                sources.append("erreur")
         if all(n is not None for n in notes):
             mini, maxi = min(notes), max(notes)  # type: ignore[type-var]
             passe = mini >= SEUIL_BONNE if cas.bonne else maxi <= SEUIL_FAUSSE
@@ -142,7 +145,7 @@ def executer(runs: int) -> tuple[list[str], bool]:
             notes_txt = "erreur (timeout/parse)"
         succes_global = succes_global and passe
         lignes.append(
-            f"| {cas.nom} | {attendu} | {notes_txt} | "
+            f"| {cas.nom} | {attendu} | {notes_txt} | {' / '.join(sources)} | "
             f"{'✅' if passe else '❌'} |"
         )
     return lignes, succes_global
@@ -168,8 +171,8 @@ def main() -> int:
         "",
         f"Modèle : `{LLM_MODEL}` · {args.runs} exécutions par cas · durée : {duree:.0f} s",
         "",
-        "| Cas | Attendu | min / max | Pass |",
-        "|---|---|---|---|",
+        "| Cas | Attendu | min / max | Sources | Pass |",
+        "|---|---|---|---|---|",
     ]
     rapport = "\n".join(entete + lignes + ["", f"**Succès global : {'OUI' if succes else 'NON'}**"])
     print(rapport)
