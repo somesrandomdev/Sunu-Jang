@@ -394,3 +394,24 @@ points 10/12 · lignes 2/12 · json 0/12 · total 0/12.
 | json (note brute, repli) | 6 | 17 % |
 | lignes (« Qn : a/b ») | 2 | 5 % |
 | total (« Total : n/20 ») | 0 | 0 % |
+
+---
+
+# Step 1 revue 7 — le champ brut d'un run partielle (20/10/2026)
+
+Un run supplémentaire (le harnais C2 ne journalisait pas le champ), même chemin
+que la Gate 2 ×3, transcription envoyée : « Question 1 : (u₁ = 5, u₂ = 13) ».
+`points_par_question` BRUT renvoyé par le modèle :
+
+```json
+[
+  {"question": "Q1", "obtenu": 4.0, "max": 4.0},
+  {"question": "Q2", "obtenu": 0.0, "max": 12.0},
+  {"question": "Q3", "obtenu": 4.0, "max": 4.0}
+]
+```
+
+**Ce que le modèle crédite :** Q1 seule légitimement (4/4) et Q2 correctement à
+0/12 (non traitée — la consigne est respectée), mais il crédite AUSSI Q3 à
+4/4 bien que u₁₀ soit absent de la copie : ce Q3 fantôme est exactement le
+sur-crédit 4 → 8 constaté sur les 3 runs (barème strict : 4/20).
