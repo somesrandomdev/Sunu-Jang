@@ -1,13 +1,21 @@
 """Interface Gradio (Blocks), en français. Lancement : python -m app.ui"""
 
+import logging
+import threading
+
 import gradio as gr
 
 from app.banque import BANQUE_PAR_MATIERE
-from app.config import TOP_K
-from app.llm import LLMError
+from app.config import LLM_MODEL, TOP_K, VISION_MODEL
+from app.llm import LLMError, get_client
 from app.rag import MATIERES_PAR_LIBELLE, charger_index, retrieve
 from app.schemas import Exercise, Grade
-from app.tutor import generate_exercise, grade_answer, next_difficulty
+from app.tutor import (
+    generate_exercise,
+    grade_answer,
+    next_difficulty,
+    transcrire_copie,
+)
 
 MATIERES = list(MATIERES_PAR_LIBELLE)
 NIVEAUX = ["Seconde", "Première", "Terminale"]
@@ -112,7 +120,7 @@ def generer_exercice(matiere: str, niveau: str, difficulte: str, theme: str):
     )
 
 
-def corriger(exercice: Exercise | None, reponse: str, niveau: str):
+def corriger(exercice: Exercise | None, reponse: str, niveau: str, depuis_photo: bool):
     """Note la réponse et affiche le bilan : note, forces, erreurs, conseil."""
     if exercice is None:
         # gr.Error (et non gr.Warning, simple fonction depuis Gradio 5) est
@@ -134,6 +142,40 @@ def corriger(exercice: Exercise | None, reponse: str, niveau: str):
         f"💡 {grade.conseil}",
         grade.note,  # mémorisée pour la progression adaptative
         gr.update(visible=True),
+        gr.update(visible=depuis_photo),
+    )
+
+
+def lire_copie(exercice: Exercise | None, image_chemin: str | None):
+    """Transcrit la photo de copie dans la zone « Ta réponse » (modifiable).
+
+    La correction reste inchangée : l'élève vérifie la transcription avant
+    de cliquer sur Corriger.
+    """
+    if exercice is None:
+        raise gr.Error("Générez d'abord un exercice.")
+    if not image_chemin:
+        raise gr.Error("Envoyez d'abord une photo de votre copie.")
+    try:
+        texte = transcrire_copie(exercice, image_chemin)
+    except (ValueError, LLMError) as exc:
+        raise gr.Error(str(exc)) from exc
+    gr.Info(
+        "Transcription automatique : vérifie-la et corrige-la si besoin "
+        "avant de cliquer sur Corriger."
+    )
+    return texte, True  # la réponse vient d'une photo (note dans les résultats)
+
+
+def _reset_zone_photo():
+    """Nouvel exercice : efface la photo, désactive « Lire ma copie »,
+    réinitialise l'indicateur « réponse issue d'une photo »."""
+    return (
+        gr.update(value=None),
+        gr.update(interactive=False),
+        False,
+        gr.update(visible=False),
+        gr.update(visible=False),
     )
 
 
@@ -165,6 +207,7 @@ def construire_demo(mode_sans_annales: bool | None = None):
 
         exercice_state = gr.State(None)  # Exercise courant ; le corrigé n'est jamais affiché
         note_state = gr.State(None)  # dernière note obtenue
+        photo_flag = gr.State(False)  # la réponse actuelle vient d'une photo
 
         with gr.Row():
             with gr.Column(scale=1):
@@ -195,12 +238,24 @@ def construire_demo(mode_sans_annales: bool | None = None):
                     placeholder="Rédige ta solution ici, étape par étape…",
                     lines=8,
                 )
+                image_copie = gr.Image(
+                    type="filepath",
+                    sources=["upload", "webcam"],
+                    label="…ou envoie une photo de ta copie",
+                )
+                statut_lecture = gr.Markdown("", visible=False)
+                bouton_lire = gr.Button("📷 Lire ma copie", interactive=False)
                 bouton_corriger = gr.Button(
                     "📝 Corriger", variant="primary", interactive=False
                 )
 
                 with gr.Column(visible=False) as resultats:
                     note = gr.Markdown(NOTE_VIDE)
+                    note_photo = gr.Markdown(
+                        "📷 Corrigé à partir d'une photo "
+                        "(transcription vérifiée par l'élève)",
+                        visible=False,
+                    )
                     with gr.Row():
                         with gr.Column():
                             gr.Markdown("#### Points forts")
@@ -215,11 +270,16 @@ def construire_demo(mode_sans_annales: bool | None = None):
 
         sortie_exercice = [enonce, sources, exercice_state, reponse, note,
                            points_forts, erreurs, correction, conseil, resultats]
+        sortie_zone_photo = [image_copie, bouton_lire, photo_flag,
+                             note_photo, statut_lecture]
 
         bouton_generer.click(
             generer_exercice,
             inputs=[matiere, niveau, difficulte, theme],
             outputs=sortie_exercice,
+        ).then(
+            _reset_zone_photo,
+            outputs=sortie_zone_photo,
         )
 
         # « Corriger » actif seulement si un exercice existe et la réponse est non vide
@@ -231,11 +291,32 @@ def construire_demo(mode_sans_annales: bool | None = None):
             outputs=[bouton_corriger],
         )
 
+        # « Lire ma copie » actif seulement si un exercice existe et une image est chargée
+        image_copie.change(
+            lambda img, exo: gr.update(interactive=bool(img) and exo is not None),
+            inputs=[image_copie, exercice_state],
+            outputs=[bouton_lire],
+        )
+
+        bouton_lire.click(
+            lambda: gr.update(
+                visible=True, value="⏳ Lecture de la copie… (~1–2 min)"
+            ),
+            outputs=[statut_lecture],
+        ).then(
+            lire_copie,
+            inputs=[exercice_state, image_copie],
+            outputs=[reponse, photo_flag],
+        ).then(
+            lambda: gr.update(visible=False),
+            outputs=[statut_lecture],
+        )
+
         bouton_corriger.click(
             corriger,
-            inputs=[exercice_state, reponse, niveau],
+            inputs=[exercice_state, reponse, niveau, photo_flag],
             outputs=[note, points_forts, erreurs, correction, conseil,
-                     note_state, resultats],
+                     note_state, resultats, note_photo],
         )
 
         # Exercice suivant : difficulté adaptée à la note, puis régénération
@@ -245,12 +326,48 @@ def construire_demo(mode_sans_annales: bool | None = None):
             generer_exercice,
             inputs=[matiere, niveau, difficulte, theme],
             outputs=sortie_exercice,
+        ).then(
+            _reset_zone_photo,
+            outputs=sortie_zone_photo,
         )
 
     return demo
 
 
+logger = logging.getLogger(__name__)
+
+
+def _prechauffer_modeles() -> threading.Thread:
+    """Charge les deux modèles dans Ollama en fond, pour une démo plus fluide.
+
+    Une requête max_tokens=1 (texte seul, même pour le modèle vision) suffit à
+    charger le modèle. Toute erreur est seulement journalisée en WARNING :
+    l'application doit démarrer même si Ollama est éteint.
+    """
+    message = [{"role": "user", "content": "ok"}]
+
+    def _chauffer() -> None:
+        for modele in (LLM_MODEL, VISION_MODEL):
+            try:
+                get_client().chat.completions.create(
+                    model=modele,
+                    messages=message,
+                    max_tokens=1,
+                )
+                logger.info("Modèle préchauffé : %s", modele)
+            except Exception as exc:  # l'app doit démarrer quoi qu'il arrive
+                logger.warning("Préchauffage de %s ignoré : %s", modele, exc)
+
+    thread = threading.Thread(target=_chauffer, name="prechauffage", daemon=True)
+    thread.start()
+    return thread
+
+
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s"
+    )
+    _prechauffer_modeles()
     construire_demo().launch()
 
 

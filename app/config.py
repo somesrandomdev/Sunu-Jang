@@ -13,6 +13,12 @@ LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b")
 # Modèle d'embeddings pour le RAG
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 
+# Modèle vision (transcription des copies manuscrites — jamais la correction)
+VISION_MODEL = os.getenv("VISION_MODEL", "qwen2.5vl:3b")
+
+# Côté maximal (px) d'une photo de copie avant envoi au modèle vision
+IMAGE_MAX_PX = int(os.getenv("IMAGE_MAX_PX", "1024"))
+
 # Clé d'API (valeur factice pour Ollama ; utile si on pointe vers une autre API)
 LLM_API_KEY = os.getenv("LLM_API_KEY", "ollama")
 

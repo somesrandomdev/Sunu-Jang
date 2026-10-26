@@ -5,6 +5,7 @@ Le client parle le protocole compatible OpenAI exposé par Ollama
 compatible OpenAI, via les variables d'environnement uniquement.
 """
 
+import base64
 import json
 import re
 from collections.abc import Sequence
@@ -14,7 +15,13 @@ import numpy as np
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 from pydantic import BaseModel, ValidationError
 
-from app.config import EMBED_MODEL, LLM_API_KEY, LLM_MODEL, OLLAMA_BASE_URL
+from app.config import (
+    EMBED_MODEL,
+    LLM_API_KEY,
+    LLM_MODEL,
+    OLLAMA_BASE_URL,
+    VISION_MODEL,
+)
 
 # Délai maximal d'une requête au modèle. Le plan fixait 120 s ; sur CPU 4
 # cœurs, une génération à 900 tokens dépasse parfois 120 s — on passe à 180 s
@@ -104,6 +111,32 @@ def _extraire_json(texte: str) -> dict:
     raise ValueError("objet JSON non fermé")
 
 
+_REESSAYER = object()  # sentinelle : erreur 5xx au 1er essai -> un réessai
+
+
+def _traduire_erreur_api(
+    exc: Exception, modele: str, tentative: int
+):
+    """Mappe les exceptions du SDK en LLMError français (comportement partagé
+    par chat_json et chat_vision). Renvoie _REESSAYER pour un 5xx au 1er essai."""
+    if isinstance(exc, APITimeoutError):  # sous-classe de APIConnectionError
+        raise _erreur_connexion() from exc
+    if isinstance(exc, APIConnectionError):
+        raise _erreur_connexion() from exc
+    if isinstance(exc, APIStatusError):
+        if exc.status_code == 404:
+            raise LLMError(
+                f"Le modèle « {modele} » est introuvable. "
+                f"Lancez : ollama pull {modele}"
+            ) from exc
+        if exc.status_code >= 500 and tentative == 1:
+            return _REESSAYER
+        raise LLMError(
+            "Le modèle local a rencontré une erreur. Relancez la génération."
+        ) from exc
+    raise exc
+
+
 def chat_json(
     system: str,
     user: str,
@@ -137,22 +170,10 @@ def chat_json(
                 response_format={"type": "json_object"},
                 max_tokens=max_tokens,
             )
-        except APITimeoutError as exc:  # sous-classe de APIConnectionError
-            raise _erreur_connexion() from exc
-        except APIConnectionError as exc:
-            raise _erreur_connexion() from exc
-        except APIStatusError as exc:
-            if exc.status_code == 404:
-                raise LLMError(
-                    f"Le modèle « {LLM_MODEL} » est introuvable. "
-                    f"Lancez : ollama pull {LLM_MODEL}"
-                ) from exc
-            if exc.status_code >= 500 and _tentative == 1:
+        except (APITimeoutError, APIConnectionError, APIStatusError) as exc:
+            if _traduire_erreur_api(exc, LLM_MODEL, _tentative) is _REESSAYER:
                 messages = list(messages_originaux)
                 continue
-            raise LLMError(
-                "Le modèle local a rencontré une erreur. Relancez la génération."
-            ) from exc
         if (reponse.choices[0].finish_reason or "") == "length" and _tentative == 1:
             messages = list(messages_originaux)
             continue  # sans la sortie tronquée : réessai sur les messages d'origine
@@ -175,6 +196,45 @@ def chat_json(
     raise LLMError(
         "Le modèle n'a pas renvoyé de réponse exploitable après deux essais. "
         "Relancez la génération."
+    )
+
+
+def chat_vision(system: str, user: str, image_png: bytes, max_tokens: int = 700) -> str:
+    """Transcription d'une image par le modèle vision : renvoie du TEXTE brut
+    (jamais du JSON — le LaTeX y est l'enfer d'échappement).
+
+    `finish_reason = "length"` renvoie quand même le texte : l'élève voit une
+    transcription coupée et peut la compléter lui-même.
+    """
+    b64 = base64.b64encode(image_png).decode()
+    messages = [
+        {"role": "system", "content": system},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+            ],
+        },
+    ]
+    for _tentative in (1, 2):
+        try:
+            reponse = get_client().chat.completions.create(
+                model=VISION_MODEL,
+                messages=messages,
+                temperature=0,
+                max_tokens=max_tokens,
+            )
+        except (APITimeoutError, APIConnectionError, APIStatusError) as exc:
+            if _traduire_erreur_api(exc, VISION_MODEL, _tentative) is _REESSAYER:
+                continue
+        texte = (reponse.choices[0].message.content or "").strip()
+        if texte:
+            return texte
+        break
+    raise LLMError(
+        "Impossible de lire la copie. Reprenez la photo plus nette, "
+        "à plat et bien éclairée."
     )
 
 
