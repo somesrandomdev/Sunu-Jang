@@ -32,3 +32,25 @@ scripts/_gen_bench_tmp.py
 demo/
 scripts/_vision_gate_tmp.py
 notes/_ollama_serve.log
+
+# Added before backup (build output, deps, secrets)
+node_modules/
+*.pyc
+.next/
+.gradle/
+.expo/
+.dart_tool/
+.turbo/
+catboost_info/
+**/android/**/build/
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.keystore
+*.jks
+*.p12
+*.pfx
+credentials.json
+*accessKeys*.csv
